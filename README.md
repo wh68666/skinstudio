@@ -1,4 +1,6 @@
-# ZCode Skin
+# SkinStudio（原 ZCode Skin）
+
+项目已更名为 **SkinStudio**，仓库地址：[wh68666/skinstudio](https://github.com/wh68666/skinstudio)。
 
 给 ZCode 桌面版（Electron）换肤的工具，与 [MonkeyCodeSkin](https://github.com/wh68666/monkeyscode-skin) 同源同架构：
 **不修改官方安装包**，通过本机 CDP（Chrome DevTools Protocol）向渲染进程注入主题。
