@@ -104,6 +104,18 @@ html[data-skin-studio="workbuddy"] .conversation-sidebar .wb-slot--avatar-top-co
  --t3:color-mix(in srgb,var(--ss-wb-ink) 76%,transparent);
  --dsub:color-mix(in srgb,var(--ss-wb-ink) 76%,transparent);
 }
+/* File results share the reading pane's glass instead of opaque native tiles. */
+html[data-skin-studio="workbuddy"] .artifact-slot-panel__card{
+ background:color-mix(in srgb,var(--ss-wb-panel) 34%,transparent) !important;
+ box-shadow:inset 0 0 0 1px var(--ss-wb-line);
+}
+html[data-skin-studio="workbuddy"] .artifact-slot-panel__card:is(:hover,:focus-within){
+ background:color-mix(in srgb,var(--ss-wb-panel) 52%,transparent) !important;
+ box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ss-wb-ink) 22%,transparent);
+}
+html[data-skin-studio="workbuddy"] :is(.artifact-slot-panel__card-share,.artifact-slot-panel__card-independent-window,.artifact-slot-panel__card-more):not(:disabled):hover{
+ background:color-mix(in srgb,var(--ss-wb-ink) 8%,transparent) !important;
+}
 html[data-skin-studio="workbuddy"] .cr-input-container{
  background:var(--ss-wb-card) !important;border-color:var(--ss-wb-line) !important;box-shadow:0 4px 18px #00000010;
 }

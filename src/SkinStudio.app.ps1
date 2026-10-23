@@ -30,7 +30,7 @@ if (-not (Test-Path $libPath)) { throw 'skin-lib.ps1 not found next to the app' 
 $script:LibPath = $libPath
 
 # app version + update check endpoint (GitHub Release, public repo required)
-$script:AppVersion = '2.8.2'
+$script:AppVersion = '2.8.3'
 $script:UpdateApiUrl = 'https://api.github.com/repos/wh68666/skinstudio/releases/latest'
 $script:NotifiedTag = ''
 
