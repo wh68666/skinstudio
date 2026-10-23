@@ -1,5 +1,7 @@
 # user data (created at runtime next to the exe) - never publish these
 config.json
+compatibility.json
+compatibility-versions.json
 themes/*
 !themes/aurora/
 imports/
@@ -13,3 +15,6 @@ release/
 
 # local tooling
 .zcode/
+
+SkinStudio.exe
+.research/

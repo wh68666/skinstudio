@@ -1,4 +1,4 @@
-# build.ps1 - build ZCodeSkin.exe with ps2exe (run in PowerShell 5.1)
+# build.ps1 - build SkinStudio.exe with ps2exe (run in PowerShell 5.1)
 $ErrorActionPreference = 'Stop'
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $root = Split-Path -Parent $scriptDir
@@ -6,7 +6,7 @@ Set-Location $root
 
 # 1. icon
 Add-Type -AssemblyName System.Drawing
-$icoPath = Join-Path $scriptDir 'app.ico'
+$icoPath = Join-Path $scriptDir 'skin-studio.ico'
 if (-not (Test-Path $icoPath)) {
     $bmp = New-Object System.Drawing.Bitmap(64, 64)
     $g = [System.Drawing.Graphics]::FromImage($bmp)
@@ -17,7 +17,7 @@ if (-not (Test-Path $icoPath)) {
     $path.AddArc(0, 0, 64, 64, 180, 180)
     $path.AddArc(0, 0, 64, 64, 0, 180)
     $g.FillPath($brush, $path)
-    $g.DrawString('Z', (New-Object System.Drawing.Font('Segoe UI', 30, [System.Drawing.FontStyle]::Bold)), [System.Drawing.Brushes]::White, 14, 8)
+    $g.DrawString('S', (New-Object System.Drawing.Font('Segoe UI', 30, [System.Drawing.FontStyle]::Bold)), [System.Drawing.Brushes]::White, 14, 8)
     $g.Dispose()
     $ico = [System.Drawing.Icon]::FromHandle($bmp.GetHicon())
     $fs = [IO.File]::Create($icoPath)
@@ -38,6 +38,9 @@ if (-not (Get-Module -ListAvailable ps2exe)) {
 }
 
 # 3. compile
-$out = Join-Path $root 'ZCodeSkin.exe'
-Invoke-ps2exe -inputFile (Join-Path $root 'ZCodeSkin.app.ps1') -outputFile $out -noConsole -iconFile $icoPath -title 'ZCodeSkin' -description 'ZCode desktop skinning tray app' -version 1.0.0.0 | Out-Null
+$out = Join-Path $root 'SkinStudio.exe'
+$source = Get-Content (Join-Path $root 'SkinStudio.app.ps1') -Raw -Encoding UTF8
+if ($source -notmatch '\$script:AppVersion\s*=\s*''([^'']+)''') { throw 'Missing AppVersion' }
+$fileVersion = $Matches[1] + '.0'
+Invoke-ps2exe -inputFile (Join-Path $root 'SkinStudio.app.ps1') -outputFile $out -noConsole -STA -iconFile $icoPath -title 'SkinStudio' -description 'ZCode, MonkeyCode, Codex and OpenCode desktop theme manager' -version $fileVersion | Out-Null
 if (Test-Path $out) { 'BUILT: ' + $out + ' (' + [math]::Round((Get-Item $out).Length / 1KB) + ' KB)' } else { 'BUILD FAILED' }

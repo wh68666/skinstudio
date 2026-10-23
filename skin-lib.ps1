@@ -165,30 +165,31 @@ function Send-CdpJson {
 
 function Receive-CdpMsg {
     param($Ws, [int]$TimeoutMs = 15000)
-    $buf = New-Object byte[] 4194304
-    $ms  = New-Object System.IO.MemoryStream
-    $sw  = [System.Diagnostics.Stopwatch]::StartNew()
-    while ($sw.ElapsedMilliseconds -lt $TimeoutMs) {
-        $t = $Ws.ReceiveAsync([ArraySegment[byte]]::new($buf), $script:ZC_CT)
-        if (-not $t.Wait(2000)) { continue }
-        $r = $t.Result
-        if ($r.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) { throw 'ws closed by peer' }
-        $ms.Write($buf, 0, $r.Count)
-        if ($r.EndOfMessage) {
-            $s = [Text.Encoding]::UTF8.GetString($ms.ToArray()); $ms.SetLength(0); return $s
-        }
-    }
-    throw 'recv timeout'
+    $buf = New-Object byte[] 65536
+    $ms = New-Object IO.MemoryStream
+    $cancel = New-Object Threading.CancellationTokenSource
+    $cancel.CancelAfter($TimeoutMs)
+    try {
+        do {
+            $r = $Ws.ReceiveAsync([ArraySegment[byte]]::new($buf), $cancel.Token).GetAwaiter().GetResult()
+            if ($r.MessageType -eq [Net.WebSockets.WebSocketMessageType]::Close) { throw 'ws closed by peer' }
+            $ms.Write($buf, 0, $r.Count)
+            if ($ms.Length -gt 16MB) { throw 'CDP response exceeds 16 MiB' }
+        } while (-not $r.EndOfMessage)
+        return [Text.Encoding]::UTF8.GetString($ms.ToArray())
+    } finally { $cancel.Dispose(); $ms.Dispose() }
 }
 
 function Invoke-Cdp {
-    param($Ws, [int]$Id, [string]$Method, $Params)
+    param($Ws, [int]$Id, [string]$Method, $Params, [int]$TimeoutMs = 20000)
     Send-CdpJson -Ws $Ws -Obj @{ id = $Id; method = $Method; params = $Params }
     $want = '"id":' + $Id + '\b'
-    while ($true) {
-        $m = Receive-CdpMsg -Ws $Ws -TimeoutMs 20000
+    $deadline = [Diagnostics.Stopwatch]::StartNew()
+    while ($deadline.ElapsedMilliseconds -lt $TimeoutMs) {
+        $m = Receive-CdpMsg -Ws $Ws -TimeoutMs ([Math]::Max(1, $TimeoutMs - [int]$deadline.ElapsedMilliseconds))
         if ($m -match $want) { return $m }
     }
+    throw "CDP command timed out: $Method"
 }
 
 function Get-CdpPageTargets {
@@ -240,7 +241,7 @@ function New-ZcodeSkinBootstrapJs {
     # The (potentially huge) wallpaper data-URI is embedded as a raw single-quoted
     # JS string (base64 is JS-string-safe) in a plain background-image declaration,
     # so Chromium's 2^21 char cap on custom properties never applies.
-    param($ThemePack, $Tuning)
+    param($ThemePack, $Tuning, [string]$ReadabilityCss = '')
     $tun = if ($Tuning) { $Tuning } else { $script:ZC_TUNING }
     $meta = $ThemePack.Meta
     $opacity = [double]($(if ($null -ne $tun.SurfaceOpacity) { $tun.SurfaceOpacity } else { $meta.surfaceOpacity }))
@@ -256,7 +257,7 @@ function New-ZcodeSkinBootstrapJs {
     $packBg    = Get-ZcodePackSurfaceColor -Css $ThemePack.Css -VarName 'color-background'
     $packPanel = Get-ZcodePackSurfaceColor -Css $ThemePack.Css -VarName 'color-panel'
     $packWin   = Get-ZcodePackSurfaceColor -Css $ThemePack.Css -VarName 'color-background-win-alt'
-    $appearance = [string]$meta.appearance
+    $appearance = ([string]$meta.appearance).Trim().ToLowerInvariant()
 
     $d = $script:ZC_VARIANT_DEFAULTS['dark']
     $l = $script:ZC_VARIANT_DEFAULTS['light']
@@ -295,11 +296,16 @@ html.theme-zai-light[data-zc-skin=`"active`"]{
         $tr = [Convert]::ToInt32($tint.Substring(1, 2), 16); $tg = [Convert]::ToInt32($tint.Substring(3, 2), 16); $tb = [Convert]::ToInt32($tint.Substring(5, 2), 16)
         # paint the wallpaper DIRECTLY on #root (plain declaration, no custom property)
         $paintCss = 'html[data-zc-skin="active"] #root{background-image:linear-gradient(rgba(' + $tr + ',' + $tg + ',' + $tb + ',' + $tintA + '), rgba(' + $tr + ',' + $tg + ',' + $tb + ',' + $tintA + ')), url("' + $dataUrl + '") !important;background-size:' + $fit + ' !important;background-position:' + $pos + ' !important;background-repeat:no-repeat !important;}'
-        $imgExpr = "'" + $paintCss + "'"
+        $imgExpr = $paintCss | ConvertTo-Json -Compress
         $bgExpr = 'true'
     }
 
-    $cssJson = ($varsCss + "`n" + $ThemePack.Css) | ConvertTo-Json -Compress
+    # Scope the entire author stylesheet, including foreground/popover tokens.
+    # Scoping only surface colors allowed a light pack's black text to leak into
+    # ZCode's native dark menus. CSS @scope keeps complex author selectors intact.
+    $packCss = $ThemePack.Css
+    if ($appearance -in @('light','dark')) { $packCss = '@scope (html.theme-zai-' + $appearance + ') {' + "`n" + $packCss + "`n}" }
+    $cssJson = ($varsCss + "`n" + $packCss + "`n" + $ReadabilityCss) | ConvertTo-Json -Compress
 
     return @"
 (function(){
@@ -312,29 +318,39 @@ try{
   if(IMG){ css+=`"\n`"+IMG; }
   var s=document.createElement('style'); s.id='zc-skin-style'; s.textContent=css;
   (document.head||document.documentElement).appendChild(s);
-  window.__ZC_SKIN='$([string]$meta.id)@$([string]$meta.version)';
+  window.__ZC_SKIN=$((([string]$meta.id) + '@' + ([string]$meta.version)) | ConvertTo-Json -Compress);
 }catch(e){}
 })()
 "@
 }
 
 function Push-ThemeToTarget {
-    param($Target, $BootstrapJs, $LogPath)
+    param($Target, $BootstrapJs, $LogPath, [hashtable]$ErrorInfo)
     try {
         $ws = Connect-CdpWs -WsUrl $Target.webSocketDebuggerUrl
         try {
             [void](Invoke-Cdp -Ws $ws -Id 1 -Method 'Runtime.enable' -Params @{})
             [void](Invoke-Cdp -Ws $ws -Id 2 -Method 'Page.enable' -Params @{})
-            $r1 = Invoke-Cdp -Ws $ws -Id 3 -Method 'Runtime.evaluate' -Params @{ expression = $BootstrapJs; returnByValue = $true }
-            if ($r1 -match '"subtype":"error"') {
-                Write-ZcLog -Path $LogPath -Message ("APPLY ERROR -> {0} : {1}" -f $Target.url, $r1.Substring(0, [Math]::Min(200, $r1.Length)))
+            $r1 = Invoke-Cdp -Ws $ws -Id 3 -Method 'Runtime.evaluate' -Params @{ expression = $BootstrapJs; returnByValue = $true; awaitPromise = $true }
+            $response = $r1 | ConvertFrom-Json
+            if ($response.error -or $response.result.exceptionDetails -or $response.result.result.subtype -eq 'error') {
+                $detail = [string]$response.error.message
+                if (-not $detail) { $detail = [string]$response.result.exceptionDetails.exception.description }
+                if (-not $detail) { $detail = [string]$response.result.result.description }
+                if (-not $detail) { $detail = [string]$response.result.exceptionDetails.text }
+                if (-not $detail) { $detail = $r1.Substring(0, [Math]::Min(1200, $r1.Length)) }
+                if ($null -ne $ErrorInfo) { $ErrorInfo.message = $detail }
+                Write-ZcLog -Path $LogPath -Message ("APPLY ERROR -> {0} : {1}" -f $Target.url, $detail)
                 return $false
             }
             $r2 = Invoke-Cdp -Ws $ws -Id 4 -Method 'Page.addScriptToEvaluateOnNewDocument' -Params @{ source = $BootstrapJs }
+            $registration = $r2 | ConvertFrom-Json
+            if ($registration.error) { throw ('Script registration failed: ' + $registration.error.message) }
             Write-ZcLog -Path $LogPath -Message ("THEME OK -> {0} | apply={1}" -f $Target.url, $r1.Substring(0, [Math]::Min(80, $r1.Length)))
             return $true
         } finally { Disconnect-CdpWs -Ws $ws }
     } catch {
+        if ($null -ne $ErrorInfo) { $ErrorInfo.message = $_.Exception.Message }
         Write-ZcLog -Path $LogPath -Message ("THEME FAIL -> {0} : {1}" -f $Target.url, $_.Exception.Message)
         return $false
     }
@@ -350,7 +366,7 @@ function Get-TargetSkinMarker {
         $ws = Connect-CdpWs -WsUrl $Target.webSocketDebuggerUrl
         try {
             [void](Invoke-Cdp -Ws $ws -Id 1 -Method 'Runtime.enable' -Params @{})
-            $r = Invoke-Cdp -Ws $ws -Id 2 -Method 'Runtime.evaluate' -Params @{ expression = 'window.__ZC_SKIN||""'; returnByValue = $true }
+            $r = Invoke-Cdp -Ws $ws -Id 2 -Method 'Runtime.evaluate' -Params @{ expression = 'window.__SKIN_STUDIO||window.__ZC_SKIN||""'; returnByValue = $true }
             $m = [regex]::Match($r, '"value"\s*:\s*"([^"]*)"')
             if ($m.Success) { return $m.Groups[1].Value }
             return ''
@@ -449,7 +465,9 @@ function Import-CodexThemePack {
         $id = [string]$t.id
         if ($id -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$') { throw ("invalid or missing theme id: " + $id) }
         $imageName = [string]$t.image
-        if (-not $imageName) { throw 'theme.json has no image field' }
+        $nativePack = -not [bool]$imageName
+        if (-not $imageName) { $imageName = [string]$t.background }
+        if (-not $imageName) { throw 'theme.json has no image or background field' }
         $imgExt = [IO.Path]::GetExtension($imageName).ToLower()
         if ('.jpg', '.jpeg', '.png', '.webp' -notcontains $imgExt) { throw ("unsupported background image type: " + $imgExt) }
         $imgEntry = FindZip $imageName
@@ -477,6 +495,10 @@ function Import-CodexThemePack {
         $utf8 = New-Object Text.UTF8Encoding($false)
 
         $bgName = 'background' + $imgExt
+        foreach ($oldExt in @('.jpg','.jpeg','.png','.webp')) {
+            $oldImage = Join-Path $dest ('background' + $oldExt)
+            if ($oldExt -ne $imgExt -and (Test-Path -LiteralPath $oldImage)) { Remove-Item -LiteralPath $oldImage -Force }
+        }
         [IO.File]::WriteAllBytes((Join-Path $dest $bgName), (Read-ZipEntryBytes -Entry $imgEntry))
 
         # original Codex theme.css targets the Codex DOM ([data-ds-part=...]); keep
@@ -502,11 +524,13 @@ function Import-CodexThemePack {
             if ($null -ne $t.art.focusY) { $fy = [double]$t.art.focusY }
         }
         $pos = ('{0}%' -f [int][math]::Round($fx * 100)) + ' ' + ('{0}%' -f [int][math]::Round($fy * 100))
+        if ($nativePack -and $t.position) { $pos = [string]$t.position }
 
         $meta = [ordered]@{
             id             = $id
             name           = [string]$t.name
-            version        = $(if ($manifest) { [string]$manifest.version } else { '0.0.0' })
+            version        = $(if ($manifest) { [string]$manifest.version } elseif ($t.version) { [string]$t.version } else { '0.0.0' })
+            colors         = $t.colors
             appearance     = [string]$t.appearance
             surfaceOpacity = $opacity
             blurPx         = 0
@@ -521,10 +545,14 @@ function Import-CodexThemePack {
             }
         }
         [IO.File]::WriteAllText((Join-Path $dest 'theme.json'), ($meta | ConvertTo-Json -Depth 5), $utf8)
-        [IO.File]::WriteAllText((Join-Path $dest 'theme.css'), (New-ZcodeCssFromCodexColors -Colors $t.colors), $utf8)
+        $portableCss = New-ZcodeCssFromCodexColors -Colors $t.colors
+        if ($nativePack -and $cssEntry) { $portableCss = Read-ZipEntryText -Entry $cssEntry }
+        [IO.File]::WriteAllText((Join-Path $dest 'theme.css'), $portableCss, $utf8)
 
         $lic = ''
         if ($manifest -and $manifest.license) { $lic = [string]$manifest.license }
         return @{ Id = $id; Name = [string]$t.name; Dir = $dest; SurfaceOpacity = $opacity; Verified = [bool]$manifest; License = $lic }
     } finally { $zip.Dispose() }
 }
+
+. (Join-Path $PSScriptRoot 'skin-platforms.ps1')

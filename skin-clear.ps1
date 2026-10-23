@@ -1,16 +1,18 @@
-# skin-clear.ps1 - restore ZCode's official look (ASCII only, PS 5.1)
-# Closes ZCode (and the skin injector with it) and relaunches it normally,
-# without the CDP debug port.
-param([string]$AppExe = '')
-
+# Restore one application without changing other applications' skins.
+param(
+    [ValidateSet('zcode','monkeycode','codex','opencode')][string]$Application = 'zcode',
+    [string]$AppExe = ''
+)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'skin-lib.ps1')
-
-if (-not $AppExe) { $AppExe = Resolve-ZcodeExe '' }
-if (-not $AppExe) { $AppExe = $script:ZC_EXE_DEFAULT }
-$log = Join-Path $PSScriptRoot 'logs\clear.log'
-Write-ZcLog -Path $log -Message "=== skin-clear: restoring official look ==="
-
-[void](Stop-ZcodeApp)
-Start-Process -FilePath $AppExe -WorkingDirectory (Split-Path $AppExe)
-Write-ZcLog -Path $log -Message "App relaunched normally (no CDP, no skin)."
+$path = Join-Path $PSScriptRoot 'config.json'
+$settings = Read-SkinSettings $path
+$profile = $settings.apps[$Application]
+if (-not $AppExe) { $AppExe = Resolve-SkinAppExe $Application $profile.appExe }
+if (-not $AppExe) { throw "$Application desktop app not found" }
+$profile.currentTheme = ''
+$profile.activeVisual = $null
+Write-SkinSettings $path $settings
+Stop-SkinApp $Application $AppExe
+[void](Start-SkinApp $Application $AppExe -Official)
+Write-Host "$Application restored to official appearance."

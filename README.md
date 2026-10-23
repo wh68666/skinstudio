@@ -1,185 +1,211 @@
-# SkinStudio（原 ZCode Skin）
+# SkinStudio
 
-项目已更名为 **SkinStudio**，仓库地址：[wh68666/skinstudio](https://github.com/wh68666/skinstudio)。
+一个 Windows 托盘软件，统一管理 **ZCode、MonkeyCode、Codex、OpenCode 桌面端**的皮肤。
+由原 ZCode Skin 项目合并扩展，主题库共用，每个应用的当前主题、程序位置和调试端口分别保存。
 
-给 ZCode 桌面版（Electron）换肤的工具，与 [MonkeyCodeSkin](https://github.com/wh68666/monkeyscode-skin) 同源同架构：
-**不修改官方安装包**，通过本机 CDP（Chrome DevTools Protocol）向渲染进程注入主题。
-远程主题库与 MonkeyCodeSkin 完全共用（api.dreamskin.cc，600+ 主题），Codex Dream Skin
-主题包 zip 可零改动导入。
+项目仓库：[wh68666/skinstudio](https://github.com/wh68666/skinstudio)。
 
-## 目录结构
+## 使用
 
+1. 解压 `release/SkinStudio-v2.7.0.zip` 到可写的独立目录。
+2. 双击 `SkinStudio.exe`，在窗口左上角选择应用。
+3. 选主题，点击“应用所选”；支持拖入 ZIP、导入 ZIP、在线图库下载安装。
+4. “程序 / 端口”可手动选择桌面端 EXE 和独立端口；“恢复官方外观”只恢复所选应用。
+5. 最小化后留在托盘。托盘也可以切换应用、主题和打开主窗口。
+
+首次换肤需要重启所选应用以启用 CDP，恢复官方外观也会重启。**操作前先保存工作**。
+已经由本工具带 CDP 启动的应用可直接切换主题。退出管理器后，当前页面皮肤仍在；
+页面刷新或新窗口的自动补注需要管理器保持运行。正常退出应用再从原快捷方式打开，会恢复原生外观。
+
+需要 Windows PowerShell 5.1（系统自带）和对应的官方桌面应用。
+EXE 必须和发布包中的全部伴随脚本、XAML 资源一起解压，不能只复制 EXE。
+源码入口是 `SkinStudio.app.ps1`，旧的 `ZCodeSkin.app.ps1` 作为兼容入口保留。
+
+## SkinStudio 自身界面皮肤（2.7.0）
+
+窗口顶部的“SkinStudio 界面”提供云白、暮夜、鸢尾、松林四款内置皮肤，以及“跟随系统”。选择后立即生效，自动保存，下次启动恢复；跟随系统会响应 Windows 应用浅/深色设置变化。
+
+主题覆盖主界面、卡片、搜索框、下拉菜单、按钮、外观调节、程序设置和兼容性验收窗口，深色皮肤也使用对应的窗口标题栏。该选择只改变管理器外观，四款目标软件的主题、收藏及微调数据保持各自独立。
+
+## 工作页面兼容性验收（2.6.0）
+
+- 新增“兼容性验收”入口，固定检查长对话、代码块、输入框、分栏、上下文、菜单及设置，分别记录浅/深色共 14 项。
+- 应用卡片显示版本与验收情况。应用或适配更新后旧记录不会算作当前版本通过，并提示重新验收；首次检测到的版本显示尚未验收。
+- 检查当前页面、查看本机截图、填写备注后人工确认通过或记录问题。自动观察不会代替人工验收，缺失场景保持待验收。
+- 已补 MonkeyCode 实机证据 12/14 项，独立上下文面板仍待验收；修复浅色代码块注释对比不足，排除宠物悬浮窗注入。
+- 新增 56 项合成工作页面回归；其他应用当前版本的实机覆盖范围、操作步骤和限制见 [COMPATIBILITY.md](COMPATIBILITY.md)。
+
+## 换肤状态与故障处理（2.5.0）
+
+- 顶部四张应用卡片显示“未安装、未运行、已连接、需要重启”；点击卡片切换应用。状态在后台定期检测，悬停可查看程序位置、端口及重启原因。“未安装”表示暂未探测到有效桌面程序，可手动指定位置。
+- 换肤按实际执行显示“启动应用 → 等待连接 → 应用皮肤 → 验证效果”，并显示已用时间。已连接的应用跳过启动和重启；等待兼容页面最长 40 秒。
+- 成功前独立读取每个目标页面的主题标记、有效样式表与壁纸，并验证图片可以解码；部分页面失败也会提示验证未通过。这里验证的是样式与图片生效情况，复杂布局仍可能需要目视检查。
+- 失败直接显示所在阶段、原因和错误详情，包括程序无效、启动失败、端口占用、连接超时、脚本错误及验证失败。“重试”复用同一应用、主题及当时的微调参数，并使用当前的程序位置和端口；切换主题选择不会改变重试目标。
+- “查看日志”打开本机 `logs/app.log`，其中记录各执行阶段和完整错误。图库加载消息不会覆盖换肤失败提示。
+- 恢复官方外观显示相应的重启、等待启动与验证启动阶段；因官方方式不会启用调试连接，此时验证的是应用进程重新运行。
+
+## 缩略图主题库（2.4.0）
+
+- 本地与远程主题均使用自适应卡片，展示壁纸、浅/深色标记、版本及当前应用的使用状态。未标注模式的主题不会凭图片猜测深浅色。
+- 输入名称、主题 ID 或远程作者搜索，支持大小写不敏感的多关键词匹配；“×”清空搜索，“仅收藏”筛选星标主题。
+- 点击卡片右上角星标收藏 / 取消收藏。收藏按主题 ID 在本地与远程列表、四个应用之间共用，保存在本机设置中；不会修改图库网站的收藏。
+- 单击卡片选择，双击本地卡片应用默认皮肤，双击远程卡片下载。点击收藏不会触发应用或下载；原有导入、删除、微调操作继续沿用。
+- 本地壁纸后台解码为小尺寸缩略图；远程预览来自图库官方预览接口，后台加载并缓存到 `assets/thumbnails/`。加载失败会显示占位卡片，不阻塞搜索和本地换肤。
+- 远程搜索 / 收藏筛选会在后台补全目录，加载期间先显示已取得的结果；预览只为当前批次匹配项加载，“加载更多”继续展示，避免一次下载整个主题库的图片。
+- 外观微调默认折叠，展开后继续编辑。搜索、收藏筛选保留所选主题及尚未保存的微调草稿。
+
+## 外观微调（2.3.0）
+
+选择本地主题后，展开“外观微调”：
+
+- 面板不透明度 0–100%，数值越小越能看清壁纸；背景模糊 0–20 px，0 表示清晰原图。
+- 壁纸位置可跟随主题或选居中、四边、四角；输入框、菜单和固定标题栏保留各自的阅读底色。
+- “清晰壁纸 / 柔和玻璃 / 阅读优先”只填充编辑器参数，调整滑块本身也不会改变已应用的主题。
+- **应用并保存微调**：保存所选应用、所选主题的参数，并应用它；失败时保留之前成功应用的外观，保存值可重试。
+- **应用已保存微调**：一键复用这个应用、这个主题的保存值，不会误用编辑器尚未保存的改动。
+- **应用所选**和**恢复主题默认**始终使用原先的默认效果，不删除已保存的微调。
+
+每个应用、每个主题分别保存一组微调。关闭管理器或重启后仍可复用；自动补注和开关浅/深色同步、可读性时保留当前已应用的微调。
+有调试连接时即时应用；首次启用换肤仍可能需要重启所选应用，滑块操作不会触发重启。
+当前设置版本为 4，自动迁移旧配置并保留已保存的微调。升级后请使用新版软件管理设置，旧版会拒绝覆盖这些新设置。
+
+## 四种应用如何适配
+
+| 应用 | 技术 | 默认端口 | 换肤方式 |
+|---|---|---|---|
+| ZCode | Electron / Tailwind v4 | 9223 | 启动参数打开 CDP，壁纸绘制到 `#root`，覆盖表面变量 |
+| MonkeyCode | Tauri / WebView2 | 9224 | 仅给子进程设置 WebView2 调试参数，复用官方壁纸层和 daisyUI 变量 |
+| Codex | Electron | 9335 | 探测桌面安装，CDP 注入壁纸，映射背景、面板、文字、强调色变量 |
+| OpenCode | Electron 桌面版 2.x | 9336 | 共用主题壁纸，适配 v2 UI 和原生色板变量，玻璃面板及原生浅/深色同步 |
+
+2.2.0 新增 OpenCode：左上角选择 OpenCode 后即可应用现有主题，设置和端口独立保存。
+默认探测 `%LOCALAPPDATA%\Programs\@opencodedesktop\OpenCode.exe` 及运行中的桌面程序，
+也可以在“程序 / 端口”手动选择。仅支持带 `resources/app.asar` 的 Electron 桌面版，
+终端 CLI 和旧 Tauri 桌面版不适用。本机 OpenCode 2.1.2 的独立测试实例已验证浅/深色壁纸、输入框和菜单；未重启用户原来的会话。
+菜单使用不透明底色，按钮保留原生状态；主内容使用半透明玻璃，避免给每个按钮增加底框。
+原生 `opencode-color-scheme` 偏好用于持久保存浅/深色，保留原有 `opencode-theme-id` 色板选择。
+
+2.2.1 修正 OpenCode 会话分栏：左右阅读面板各绘制一层玻璃，消除上下文 / 审查面板内部底色反复叠加形成的白块；
+固定标题栏保留遮挡滚动文字的底色，输入框、浮层、代码和网页内容继续使用各自的表面。
+已在运行中的真实会话页检查上下文分栏，更新样式无需重启该会话。
+
+2.2.2 去掉 OpenCode 聊天和侧边内容面板的背景模糊，直接显示清晰壁纸；保留单层半透明阅读底色、固定标题栏遮挡和输入框表面。
+
+Codex 桌面程序通常是 `OpenAI.Codex_.../app/ChatGPT.exe`；`codex.exe` 是 CLI，不能用作桌面端。
+自动探测包括运行进程、Microsoft Store 安装注册、常见目录和卸载注册表项。
+Store 更新导致路径变化时会重新探测。若当前版本不接受调试参数或 Windows 拒绝直接启动，
+界面会报告错误；不会修改 WindowsApps 权限或安装文件。
+
+本机开发时确认的桌面程序为 OpenAI.Codex 26.1016.6573.0 的 `ChatGPT.exe`。
+2.1.1 优化 ZCode 的玻璃层次：去掉壁纸染色和全窗口重复底层，内容区与侧栏分别绘制半透明面板，项目工具栏与输入框合为一张玻璃卡片，淡化首页装饰标识；保留原生按钮状态、菜单可读性及浅/深色同步。
+
+2.1.0 默认在应用皮肤时自动匹配浅/深色外观：读取 `theme.json` 的 `appearance: light|dark`，
+没有明确标记时保留当前模式。主窗口可以按应用关闭“随皮肤自动切换浅色 / 深色外观”。
+关闭只停止之后的同步，不会把应用恢复到此前的模式；恢复官方皮肤也保留当前原生外观设置。
+
+ZCode 使用应用原生主题 store，Codex 使用原生 `appearanceTheme` 设置，已在本机验证持久保存。
+MonkeyCode 优先寻找原生主题 setter，并沿用现有 `mc.theme` 的存储格式；没有可识别的持久化入口时，
+仅同步当前渲染页面外观。MonkeyCode 本机现已补做部分工作页面的实机验收，具体版本与待验收项见 [COMPATIBILITY.md](COMPATIBILITY.md)。
+切换皮肤和重载页面会执行同步；用户手动改变原生模式后，不会在后台持续强制改回。
+
+2.1.0 同时修复 ZCode 浅色主题文字泄漏到原生深色菜单的问题：作者 CSS 限定在匹配模式内生效，
+并为 ZCode 增加轻柔可读性开关，修正菜单、弹窗、次要文字和图标的对比度，不增加独立按钮底框。
+
+2.0.1 已在正在运行的 Codex 上通过 CDP 应用并检查实际渲染截图，无需重启当前会话。
+聊天主面板按 50% 不透明度处理，输入框保留 88% 底色；浅色主题不会覆盖深色模式的原生文字色。
+同时覆盖独立 Chromium 上的真实 CDP 通信、三种注入脚本的壁纸渲染、配置/导入逻辑，
+并增加超过 2 MiB 的壁纸回归检查。ZCode、MonkeyCode 尚未完成全部页面逐项视觉验收。
+Codex 适配是第一版：目前提供壁纸与基础颜色，复杂主题中依赖 Dream Skin 自身 DOM 标记的
+布局效果、自定义 `codex-extra.css` 不会直接照搬。
+
+2.0.1 还修复了后台检查期间点击换肤被忽略、在线图库加载阻塞本地换肤的问题。
+2.0.2 清除输入区外层的白色整块背景及其上方渐变，保留输入框本身的阅读底色。
+2.0.4 将 Codex 可读性开关调整为轻柔玻璃效果（默认开启）：导航与工具栏共用半透明底层，
+按钮默认保持透明，不加粗边框或独立底框；仅在悬停和选中时轻微高亮，图标增加柔和阴影。
+主面板在浅色模式下为 56%、深色模式下为 64% 不透明度，减少对壁纸的遮挡。
+关闭开关恢复原来的透明效果。
+2.0.5 移除菜单栏与页面之间原生预留的 8px 标题栏间距，避免透明皮肤露出横向缝隙。
+偏好按应用保存，切换主题时继续沿用；禁用按钮和发送按钮保留原来的状态与语义色。
+更新适配器后，即使主题 ID 和版本不变，运行时修订标记也会触发重新注入；桌宠浮层不会加载主窗口壁纸。
+
+Codex 官方也支持基础外观、颜色和字体设置，参见
+[官方外观设置](https://learn.chatgpt.com/docs/reference/settings#appearance)。
+壁纸不修改安装文件。开启自动外观同步时，只更新原生浅/深色模式，不覆盖自定义配色或字体。
+
+## 主题共用与迁移
+
+- 启动读取旧 ZCode `config.json`，把旧路径、当前主题、端口迁移为 `apps.zcode`。
+  首次保存时写入版本 4 配置，MonkeyCode、Codex、OpenCode 独立配置，不会误用旧端口。
+- 现有 ZCode 主题目录原位保留。
+- 原 MonkeyCode 主题可把整个 `themes/<id>` 目录复制到本软件的 `themes/`，或压缩该目录后导入。
+  重名主题请先自行保留备份。管理器没有自动查找、修改另一份软件的用户目录。
+- 新导入的 Dream Skin ZIP 保留原始色板，按所选应用转换；旧主题缺少色板时从已有 CSS 变量读取。
+- 支持原生主题包的 `background` 字段和 Dream Skin 包的 `image` 字段。
+- 删除主题会清除四个应用中引用该主题的记录；已注入页面会保留到恢复或重启。
+- 导入限制：ZIP 不超过 32 MiB、32 项、解压内容不超过 64 MiB；有 manifest 时逐文件校验 SHA-256。
+
+```text
+themes/<id>/
+  theme.json       id、name、version、appearance、colors、position 等
+  theme.css        ZCode 或 MonkeyCode 原生样式 / 导入生成的调色板
+  background.jpg   也支持 jpeg / png / webp
+  codex-extra.css  保留的源主题 CSS，不直接注入
 ```
-ZCodeSkin\
-├─ skin-lib.ps1         共享库：CDP 客户端、应用启停、主题包加载、注入脚本生成
-├─ ZCodeSkin.exe        托盘应用（双击即用）
-├─ ZCodeSkin.app.ps1    托盘应用源码（与 exe 等效）
-├─ app\                 构建：build.ps1（ps2exe 打包）、app.ico
-├─ skin-start.ps1       启动器：自动导入 imports\ 下的 zip → 关闭现有实例 → 带调试端口重启 → 拉起注入器
-├─ skin-injector.ps1    注入器：向所有页面目标推送主题，监听新窗口，应用退出时自动结束
-├─ skin-import.ps1      导入器：Codex Dream Skin 主题包 zip -> themes\<id>\
-├─ skin-clear.ps1       恢复：关闭并正常重启 ZCode（无调试端口、无皮肤）
-├─ themes\aurora\       示例主题包（极光渐变 + 暗色玻璃，壁纸程序化生成，无版权问题）
-│   ├─ theme.json       元数据与壁纸参数（surfaceOpacity / fit / position / appearance）
-│   ├─ theme.css        附加 CSS（ZCode 调色板变量覆盖）
-│   └─ background.jpg   壁纸（1920x1080）
-└─ logs\                运行日志
-```
 
-## 安装与分发（发给其他用户）
+旧软件和 SkinStudio 不应同时给同一应用持续换肤，否则两个注入器可能轮流覆盖。
+共享主题不表示所有应用 DOM 相同：只迁移可映射的颜色、壁纸和定位，各自的专用选择器分开处理。
 
-发布包：仓库根目录 `build-release.ps1` 一键产出 `release\ZCodeSkin-v<版本>.zip`，
-内含 `ZCodeSkin.exe` + `skin-lib.ps1` + 本 README。**exe 必须与 skin-lib.ps1 同目录**（运行时读取）。
-发新版本：`build-release.ps1` 构建后跑 `publish-release.ps1`（读取 app 源码里的版本号，
-自动打 tag、创建 GitHub Release 并上传附件；更新检查即基于该 Release）。
-
-1. 解压到一个有写权限的独立目录（如 `D:\ZCodeSkin`），首次运行会在旁边生成
-   config.json / themes\ / logs\ / assets\，这些是用户数据，升级时不要删
-2. 双击 `ZCodeSkin.exe`。需本机已安装 ZCode 官方桌面版：程序会自动探测安装位置
-   （运行中的进程 / 常见目录 / 注册表），找不到时会弹窗让你选择 ZCode.exe，
-   选择会被记住（存于 config.json 的 appExe 字段）
-3. 首次运行若 Windows 弹“已保护你的电脑”：点 **更多信息 → 仍要运行**；或右键 exe →
-   属性 → 勾选 **解除锁定** 后再运行。ps2exe 封装的 exe 可能被个别杀软误报；
-   介意可直接运行 ZCodeSkin.app.ps1（效果相同）
-4. 升级新版本：用新 zip 覆盖 `ZCodeSkin.exe` 和 `skin-lib.ps1` 两个文件即可，
-   配置与已装主题自动保留
-
-## ZCodeSkin.exe（托盘应用，推荐）
-
-```
-ZCodeSkin.exe   双击启动，常驻托盘；主窗口含两个标签页
-```
-
-- **跑马灯公告**：主窗口顶部滚动显示微云分享笔记的内容（share.weiyun.com/5NSFzCXr，
-  微云里改内容即生效）；启动时在线拉取，失败回退到
-  logs\announcement.txt 缓存，之后每 30 分钟自动刷新
-- **语言切换**：右上角下拉框 English / 简体中文 / 繁體中文，切换后全界面立即更新；
-  选择保存在 config.json 的 lang 字段，首次启动按系统语言自动选择
-- **My Themes**：已装主题列表（双击或点 Apply 应用，会自动重启 ZCode 并注入）；
-  拖拽 zip 到列表或点 Import zip... 导入；选中主题后点 Delete theme 删除主题包
-  （弹窗确认，删除使用中的主题会同时清除皮肤记录）；Official look 恢复官方外观
-- **Repository (Remote)**（中文页签：主题仓库）：内置远程图库浏览器（api.dreamskin.cc，
-  与 MonkeyCodeSkin 同一个库，600+ 主题），主题名后以太阳/月亮小图标标注 light / dark
-  外观；双击或点 Download and install selected 直接下载安装，Load more 加载更多，
-  也可点 Open in browser 去网页看预览
-- **托盘图标**：左键双击打开主窗口；右键菜单直接切换已装主题 / 恢复官方外观 / 退出
-- 应用本身即注入器（常驻期间自动给新开的 ZCode 窗口补注入）；当前主题记录在 config.json，
-  重启 exe 后若 ZCode 已带调试端口运行则自动接管
-- 若 ZCode 正在运行，切换主题会先关闭它再带调试端口重启（会话内未保存的输入会丢失）
-- 重新构建：`powershell -File app\build.ps1`（需网络安装 ps2exe 模块）
-- exe 为 ps2exe 封装，个别杀软可能误报；介意可直接运行 ZCodeSkin.app.ps1（效果相同）
-
-## 使用方法（脚本模式）
+## 脚本使用
 
 ```powershell
-# 换肤（会自动重启 ZCode；-Force 跳过确认）
-powershell -NoProfile -ExecutionPolicy Bypass -File skin-start.ps1 -Theme aurora -Force
+# 不指定 Application 时仍默认 ZCode，兼容旧命令
+powershell -NoProfile -ExecutionPolicy Bypass -File skin-start.ps1 -Application zcode -Theme aurora -Force
+powershell -NoProfile -ExecutionPolicy Bypass -File skin-start.ps1 -Application monkeycode -Theme aurora -Force
+powershell -NoProfile -ExecutionPolicy Bypass -File skin-start.ps1 -Application codex -Theme aurora -Force
+powershell -NoProfile -ExecutionPolicy Bypass -File skin-start.ps1 -Application opencode -Theme aurora -Force
 
-# 恢复官方外观
-powershell -NoProfile -ExecutionPolicy Bypass -File skin-clear.ps1
+# 恢复指定应用
+powershell -NoProfile -ExecutionPolicy Bypass -File skin-clear.ps1 -Application codex
+
+# 共用主题导入；imports/ 中的 ZIP 也会在脚本启动时自动导入
+powershell -NoProfile -ExecutionPolicy Bypass -File skin-import.ps1 -Zip C:\path\theme.zip
 ```
 
-要求：Windows PowerShell 5.1（系统自带）。ZCode 安装位置自动探测（本机实测
-`D:\PCSoftware\ZCode\ZCode.exe`），也可用 `-AppExe` 指定。
-
-## 直接使用 Codex Dream Skin 主题包（已实测）
-
-从 dreamskin.cc 等渠道下载的 Codex 主题包（zip）可以零改动使用，两种方式任选：
+## 开发与构建
 
 ```powershell
-# 方式一：手动导入后换肤
-powershell -NoProfile -ExecutionPolicy Bypass -File skin-import.ps1 -Zip C:\path\to\theme.zip
+# 开发运行
+powershell -STA -NoProfile -ExecutionPolicy Bypass -File SkinStudio.app.ps1
 
-# 方式二：把 zip 丢进 imports\ 文件夹，skin-start 会自动导入（处理完移入 imports\done\）
-powershell -NoProfile -ExecutionPolicy Bypass -File skin-start.ps1 -Theme <主题id> -Force
+# 回归验证：临时配置/主题、独立无界面 Edge，不重启用户应用
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/verify.ps1
+
+# 界面与三语言自检，不联网、不导入到用户主题库、不写用户配置
+powershell -STA -NoProfile -ExecutionPolicy Bypass -File SkinStudio.app.ps1 -SelfTest
+
+# 生成 EXE 与包含内置主题的便携发布包，需要 ps2exe
+powershell -NoProfile -ExecutionPolicy Bypass -File build-release.ps1
 ```
 
-导入器兼容 Dream Skin v1 契约（zip ≤32MiB / ≤32 条目 / 解压后 ≤64MiB），带 manifest.json
-的包会逐文件校验 SHA-256；也兼容无 manifest 的简化包。文件在 zip 根目录或单一子目录均可。
+测试输出在 `logs/selftest.txt`，WPF 渲染预览在 `logs/selftest-ui.png`。
+`config.json`、`themes/`、`imports/`、`logs/` 都是本地用户数据；发布包只带内置 Aurora。
+升级保留这些数据，覆盖软件文件即可。
 
-导入时的字段映射：
+核心文件：`SkinStudio.app.ps1`（统一界面、托盘、图库、多应用监控）、
+`skin-lib.ps1`（CDP、ZIP、ZCode 样式）、`skin-platforms.ps1`（四应用适配、路径探测、配置迁移）、
+`skin-opencode.ps1`（OpenCode 桌面壁纸和玻璃样式）、
+`skin-operation.ps1`（执行阶段、应用状态和独立效果验证）、`skin-status-ui.ps1`（状态卡片、进度、错误与重试）、
+`skin-visuals.ps1`（微调配置、预设及四应用样式）、`skin-visual-ui.ps1`（微调编辑器）、
+`skin-theme-browser.ps1` / `theme-cards.xaml`（卡片、搜索、收藏）、`skin-thumbnails.ps1`（预览解码与缓存）、
+`skin-appearance.js`（原生外观同步与兼容回退）。
 
-| Codex 主题包 | ZCode 主题 |
-|---|---|
-| `image` 背景图 | `background.<ext>` 壁纸 |
-| `art.focusX/focusY` | `position: "X% Y%"` 背景定位 |
-| `colors.panel` 的 alpha（如 `#1e1e1e55`） | `surfaceOpacity: 0.33`（作者透明度意图） |
-| `colors.*` 九个色板 token | `--color-background`、`--color-panel`、`--color-primary` 等 Tailwind v4 变量 |
-| `theme.css`（选择器面向 Codex DOM） | 存为 `codex-extra.css` 备查，不注入 |
-| `manifest.json` 许可证/作者 | 写入 `theme.json` 的 `imported` 字段 |
+## 实现与参考
 
-## 工作原理（全部经过实测验证）
+不修改官方二进制、app.asar、签名或系统级环境变量。调试端口只允许本机回环监听，
+注入前校验监听者属于所选程序，并过滤应用页面，跳过内嵌网页和远程 WebSocket。
+本机其他进程仍可能访问无鉴权 CDP；恢复外观或正常重启应用后关闭调试端口。
 
-ZCode 桌面版是 **Electron** 应用（MonkeyCode 是 Tauri/WebView2，启动方式不同）：
-
-1. Electron 原生支持 Chromium 命令行开关，启动器直接以
-   `ZCode.exe --remote-debugging-port=9223` 拉起（会话级，仅作用于该次启动的实例），
-   零修改打开 CDP 调试端口
-2. 注入器通过 `http://127.0.0.1:9223/json` 枚举页面目标（主窗口为
-   `file://.../app.asar/out/renderer/index.html`，另有内嵌页与 worker，worker 自动跳过），
-   经 WebSocket 附加后执行注入脚本，并用 `Page.addScriptToEvaluateOnNewDocument`
-   注册持久化注入
-3. ZCode 前端是 React + Tailwind v4，主题切换 = `html` 上的 `theme-zai-dark` /
-   `theme-zai-light` 类，全部界面颜色引用 `--color-background`、`--color-panel`、
-   `--color-sidebar`、`--color-background-win-alt` 等语义变量。ZCode **没有**
-   MonkeyCode 的内置壁纸层（data-mc-background 机制不存在），所以注入脚本：
-   - 把壁纸以 `background-image` 直接画在 `#root` 上（普通声明 + `!important`，
-     不经过自定义属性，规避 Chromium 对 CSS 变量值 2^21 字符的静默上限）
-   - 用 `color-mix(in srgb, <底色> 50%, transparent) !important` 把上述表面变量改成
-     半透明，壁纸即从面板后透出（浅色/深色各自变体分别适配，文字可读性不受影响）
-   - 主题包若声明了调色板（导入器生成或手写），按包的 `appearance` 字段落到对应
-     变体：dark 包重配深色模式，浅色模式保留 ZCode 原生配色半透明化
-
-## 应用时自动调教（reference tuning）
-
-与 MonkeyCodeSkin 相同的“壁纸为主角”参考配方，应用任何主题（内置 / 导入 / 图库下载）时
-注入器在运行时统一处理，**主题包文件本身不做任何修改**：
-
-- 面板不透明度强制 50%（color-mix 混入 50% 透明），壁纸透过面板清晰可见
-- 壁纸 fit=cover；背景定位使用主题包自己的 position
-- 壁纸上叠加主题底色 25% 压暗渐变
-- 参数可在 skin-lib.ps1 的 `$script:ZC_TUNING` 中调整
-
-## 关键坑（调试记录）
-
-- CDP 的 `Page.addScriptToEvaluateOnNewDocument` 注册在注入端 WebSocket 断开后即失效：
-  页面刷新后皮肤会丢失。监控循环每 5 秒校验 `window.__ZC_SKIN` 标记，缺失即自动补注
-  （独立注入器按目标 id 判断，刷新产生新 id，天然重注）
-- ZCode 带单实例锁（requestSingleInstanceLock）：换肤启动前必须完全退出已运行实例，
-  否则新进程会把参数移交给旧实例后退出、调试端口开不出来
-- ZCode 支持环境变量 `ZCODE_DESKTOP_USER_DATA_DIR` 自定义数据目录（锁随目录走），
-  可用不同目录并行启动第二个实例做开发测试，不影响正常使用的实例
-- Chromium 对 CSS 自定义属性值有 2^21（2,097,152）字符上限：大壁纸（PNG 常超 2MB）的
-  data-URI 一旦放进 `var(...)` 会被解析器静默丢弃——壁纸因此用普通
-  `background-image:url(...)` 声明直接绘制
-- ps2exe `-noConsole` 封装的 exe 里 `Write-Output` 会永久阻塞（无控制台可写）：
-  自检结果只写 `logs\selftest.txt`，不向 stdout 输出
-- 含中文的 .ps1 必须带 UTF-8 BOM，否则 PowerShell 5.1 按 ANSI 读取，中文字符串乱码
-  甚至吞掉引号造成语法错误
-
-## 安全说明
-
-- 不修改官方二进制与签名，应用更新后重新执行 skin-start 即可
-- 调试端口绑定 127.0.0.1 但**无鉴权**，同机其他进程可连接；不用皮肤时执行
-  skin-clear 或正常重启即可关闭端口
-- 注入内容仅为 CSS 与设置属性的 JS，不涉及网络与数据读取
-
-## 主题包格式
-
-```
-themes/<name>/
-├─ theme.json     必需：id / version / appearance(light|dark) / surfaceOpacity(0~1) / fit(cover|contain) / position
-├─ theme.css      可选：附加 CSS（注入为 #zc-skin-style，用 ZCode 的 Tailwind 变量名）
-└─ background.jpg 支持 .jpg/.jpeg/.png/.webp，以 data-URI 内嵌注入
-```
-
-## 已知限制与路线图
-
-- [x] MVP：启动器 + 注入器 + 示例主题
-- [x] Codex Dream Skin 主题包导入（manifest 校验 + token 映射 + imports\ 自动导入）
-- [x] ZCodeSkin.exe：托盘常驻 + UI + 图库在线安装 + 一键切换
-- [x] 启动时检查 GitHub Release 更新并提示（托盘气泡，点击打开下载页；
-      仓库发布 Release 后自动生效）
-- [ ] 壁纸模糊（blurPx）暂未实现：ZCode 无独立壁纸层，filter 模糊 #root 会连 UI 一起糊
-- [ ] 外观不匹配的主题包（如 dark 包 + 浅色模式）只应用壁纸，调色板保留 ZCode 原生
-- [ ] Safe CSS 白名单 + 选择器 doctor（对抗应用更新导致的 DOM 漂移）
+参考：[MonkeyCode Skin](https://github.com/wh68666/monkeyscode-skin)、
+[Codex Dream Skin](https://github.com/Fei-Away/Codex-Dream-Skin)、
+[Codex Dynamic Skin](https://github.com/CCDawn/Codex-Dynamic-Skin)。
+来源说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

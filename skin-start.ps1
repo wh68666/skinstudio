@@ -1,72 +1,44 @@
-# skin-start.ps1 - ZCode Skin launcher (ASCII only, PS 5.1)
-# Usage:
-#   powershell -NoProfile -ExecutionPolicy Bypass -File skin-start.ps1 [-Theme aurora] [-Port 9223] [-Force]
+# Unified launcher. Existing commands default to ZCode.
 param(
-    [string]$Theme = 'aurora',
-    [int]$Port = 9223,
+    [ValidateSet('zcode','monkeycode','codex','opencode')][string]$Application = 'zcode',
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$Theme = 'aurora',
+    [int]$Port = 0,
     [switch]$Force,
     [string]$AppExe = ''
 )
-
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'skin-lib.ps1')
-
-if (-not $AppExe) { $AppExe = Resolve-ZcodeExe '' }
-if (-not $AppExe) { $AppExe = $script:ZC_EXE_DEFAULT }
-$log = Join-Path $PSScriptRoot 'logs\launcher.log'
-
-# 0. Auto-import any Codex Dream Skin zips waiting in imports\
-$importsDir = Join-Path $PSScriptRoot 'imports'
-if (Test-Path $importsDir) {
-    $doneDir = Join-Path $importsDir 'done'
-    New-Item $doneDir -ItemType Directory -Force | Out-Null
-    Get-ChildItem $importsDir -Filter *.zip -File -ErrorAction SilentlyContinue | ForEach-Object {
-        try {
-            $r = Import-CodexThemePack -ZipPath $_.FullName -ThemesRoot (Join-Path $PSScriptRoot 'themes')
-            Move-Item -LiteralPath $_.FullName -Destination (Join-Path $doneDir $_.Name) -Force
-            Write-ZcLog -Path $log -Message ("Auto-imported " + $_.Name + " -> theme '" + $r.Id + "'")
-            Write-Host ("Imported: " + $_.Name + " as theme '" + $r.Id + "'")
-        } catch {
-            Write-ZcLog -Path $log -Message ("Auto-import FAILED for " + $_.Name + ": " + $_.Exception.Message)
-            Move-Item -LiteralPath $_.FullName -Destination ($_.FullName + '.failed') -Force
-        }
+$cfgPath = Join-Path $PSScriptRoot 'config.json'
+$settings = Read-SkinSettings $cfgPath
+$profile = $settings.apps[$Application]
+if (-not $Port) { $Port = $profile.port }
+if ($Port -lt 1024 -or $Port -gt 65535) { throw 'Port must be 1024-65535' }
+foreach ($id in $script:SkinApps.Keys) {
+    if ($id -ne $Application -and $settings.apps[$id].port -eq $Port) { throw "Port $Port is assigned to $id" }
+}
+if (-not $AppExe) { $AppExe = Resolve-SkinAppExe $Application $profile.appExe }
+if (-not $AppExe) { throw "$Application desktop app not found. Configure it in SkinStudio." }
+[void](New-Item (Join-Path $PSScriptRoot 'logs') -ItemType Directory -Force)
+$log = Join-Path $PSScriptRoot ('logs\' + $Application + '-launcher.log')
+$themesRoot = Join-Path $PSScriptRoot 'themes'
+$imports = Join-Path $PSScriptRoot 'imports'
+if (Test-Path -LiteralPath $imports) {
+    foreach ($zip in @(Get-ChildItem -LiteralPath $imports -Filter *.zip -File)) {
+        $result = Import-CodexThemePack -ZipPath $zip.FullName -ThemesRoot $themesRoot
+        $done = Join-Path $imports 'done'
+        [void](New-Item $done -ItemType Directory -Force)
+        Move-Item -LiteralPath $zip.FullName -Destination (Join-Path $done $zip.Name) -Force
+        Write-Host ('Imported: ' + $result.Id)
     }
 }
-
-$themeDir = Join-Path $PSScriptRoot ("themes\" + $Theme)
-if (-not (Test-Path $themeDir)) { Write-Host "Theme not found: $themeDir"; exit 1 }
-
-Write-ZcLog -Path $log -Message "=== skin-start theme=$Theme port=$Port ==="
-
-# 1. If ZCode is already running, restart it (skin needs the CDP launch)
-$running = Get-Process $script:ZC_PROC_NAME -ErrorAction SilentlyContinue
-if ($running) {
-    if (-not $Force) {
-        $ans = Read-Host "ZCode is running. Restart it with skin? (y/N)"
-        if ($ans -notmatch '^[Yy]') { Write-Host 'Aborted.'; exit 0 }
-    }
-    Write-ZcLog -Path $log -Message "Closing running instance..."
-    [void](Stop-ZcodeApp)
+if ((Get-SkinAppProcesses $AppExe).Count -and -not (Test-SkinCdpOwner $Application $AppExe $Port) -and -not $Force) {
+    $answer = Read-Host "$Application needs a restart. Save your work first. Continue? (y/N)"
+    if ($answer -notmatch '^[Yy]$') { return }
 }
-
-# 2. Launch app with CDP port
-$pid2 = Start-ZcodeAppWithCdp -Port $Port -AppExe $AppExe
-Write-ZcLog -Path $log -Message "App started PID=$pid2"
-
-# 3. Wait for CDP
-$v = Wait-CdpOpen -Port $Port -TimeoutSec 30
-if (-not $v) {
-    Write-ZcLog -Path $log -Message "CDP port did not open. App runs WITHOUT skin (no modification was made)."
-    exit 2
-}
-Write-ZcLog -Path $log -Message ("CDP open: " + $v.Browser)
-
-# 4. Spawn injector in a separate minimized window (keeps applying theme to new targets)
-$inj = Join-Path $PSScriptRoot 'skin-injector.ps1'
-Start-Process powershell.exe -ArgumentList @(
-    '-NoProfile', '-ExecutionPolicy', 'Bypass',
-    '-File', "`"$inj`"",
-    '-Theme', $Theme, '-Port', $Port
-) -WindowStyle Minimized
-
-Write-ZcLog -Path $log -Message "Injector spawned. To restore the official look, run skin-clear.ps1 (or just close the app and start ZCode normally)."
+$result = Invoke-SkinOperation -Application $Application -AppExe $AppExe -Port $Port -ThemeDir (Join-Path $themesRoot $Theme) -LogPath $log -Options (Get-SkinThemeOptions $profile $Theme -Default)
+$profile.activeVisual = $null
+$profile.appExe = $AppExe; $profile.port = $Port; $profile.currentTheme = $Theme
+$settings.activeApp = $Application
+Write-SkinSettings $cfgPath $settings
+Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + (Join-Path $PSScriptRoot 'skin-injector.ps1') + '"'), '-Application', $Application) -WindowStyle Hidden
+Write-Host "$Application skin active: $Theme ($($result.message))"

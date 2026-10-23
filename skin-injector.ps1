@@ -1,45 +1,24 @@
-# skin-injector.ps1 - ZCode Skin injector (ASCII only, PS 5.1)
-# Pushes the theme into every page target via CDP, then watches for new targets.
-# Exits automatically when ZCode exits.
-param(
-    [string]$Theme = 'aurora',
-    [int]$Port = 9223
-)
-
-$ErrorActionPreference = 'Continue'
-$Host.UI.RawUI.WindowTitle = 'ZCode Skin Injector'
+# Standalone watcher follows the selected app's saved profile.
+param([ValidateSet('zcode','monkeycode','codex','opencode')][string]$Application = 'zcode')
+$ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'skin-lib.ps1')
-
-$log = Join-Path $PSScriptRoot 'logs\injector.log'
-$themeDir = Join-Path $PSScriptRoot ("themes\" + $Theme)
-
-Write-ZcLog -Path $log -Message "=== injector start theme=$Theme port=$Port pid=$PID ==="
-
-$pack = Get-ThemePack -ThemeDir $themeDir
-$bootstrap = New-ZcodeSkinBootstrapJs -ThemePack $pack
-$marker = ([string]$pack.Meta.id) + '@' + ([string]$pack.Meta.version)
-Write-ZcLog -Path $log -Message ("Theme loaded: {0} v{1} bg={2} cssLen={3} bootstrapLen={4}" -f $pack.Name, $pack.Version, [bool]$pack.BgPath, $pack.Css.Length, $bootstrap.Length)
-
-$injected = @{}
-$script:cid = 10
-while ($true) {
-    try {
-        $pages = Get-CdpPageTargets -Port $Port
-        foreach ($p in $pages) {
-            # target id changes on reload -> treated as new; marker check covers
-            # same-id redocs the injector process itself may have missed
-            if ($injected.ContainsKey($p.id) -and ((Get-TargetSkinMarker -Target $p) -eq $marker)) { continue }
-            $script:cid++
-            $ok = Push-ThemeToTarget -Target $p -BootstrapJs $bootstrap -LogPath $log
-            if ($ok) { $injected[$p.id] = $true }
-        }
-    } catch {
-        # HTTP endpoint failed: app may be closing or starting
+$mutex = New-Object Threading.Mutex($false, ('Local\SkinStudioInjector-' + $Application))
+if (-not $mutex.WaitOne(0)) { return }
+try {
+    $log = Join-Path $PSScriptRoot ('logs\' + $Application + '-injector.log')
+    $cachedTheme = ''; $js = ''; $marker = ''
+    while ($true) {
+        $settings = Read-SkinSettings (Join-Path $PSScriptRoot 'config.json')
+        $profile = $settings.apps[$Application]
+        if (-not $profile.currentTheme -or -not $profile.appExe -or -not @(Get-SkinAppProcesses $profile.appExe).Count) { break }
+        try {
+            $pack = Get-ThemePack (Join-Path (Join-Path $PSScriptRoot 'themes') $profile.currentTheme)
+            $nextMarker = Get-SkinMarker $pack $profile
+            if ($cachedTheme -ne $nextMarker) { $js = New-SkinBootstrapJs $Application $pack $profile; $marker = $nextMarker; $cachedTheme = $nextMarker }
+            foreach ($target in @(Get-SkinTargets $Application $profile.appExe $profile.port)) {
+                if ((Get-TargetSkinMarker $target) -ne $marker) { [void](Push-ThemeToTarget $target $js $log) }
+            }
+        } catch { Write-ZcLog -Path $log -Message $_.Exception.Message }
+        Start-Sleep -Seconds 5
     }
-    if (-not (Get-Process $script:ZC_PROC_NAME -ErrorAction SilentlyContinue)) {
-        Write-ZcLog -Path $log -Message "ZCode exited. Injector stopping."
-        break
-    }
-    Start-Sleep -Seconds 5
-}
-Write-ZcLog -Path $log -Message "=== injector exit ==="
+} finally { $mutex.ReleaseMutex(); $mutex.Dispose() }
