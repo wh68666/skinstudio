@@ -469,11 +469,16 @@ function New-SkinBootstrapJs {
     param([string]$Application = 'zcode', $ThemePack, $Options)
     $style = New-SkinStyleBootstrapJs $Application $ThemePack $Options
     $appearance = ([string]$ThemePack.Meta.appearance).Trim().ToLowerInvariant()
-    if (-not (Test-SkinAppearanceSync $Options) -or $appearance -notin @('light','dark')) { return $style }
+    if (-not (Test-SkinAppearanceSync $Options) -or $appearance -notin @('light','dark')) {
+        if ($Application -eq 'workbuddy') { return New-WorkBuddyReadyBootstrapJs $style }
+        return $style
+    }
     $helper = [IO.File]::ReadAllText((Join-Path $script:SkinPlatformsDir 'skin-appearance.js'), [Text.Encoding]::UTF8)
     $appJson = $Application | ConvertTo-Json -Compress
     $modeJson = $appearance | ConvertTo-Json -Compress
-    return "(async()=>{`n" + $helper + "`nawait skinStudioSyncAppearance($appJson,$modeJson);`nreturn (function(){`n" + $style + "`nreturn window.__SKIN_STUDIO;})();`n})()"
+    $bootstrap = "(async()=>{`n" + $helper + "`nawait skinStudioSyncAppearance($appJson,$modeJson);`nreturn (function(){`n" + $style + "`nreturn window.__SKIN_STUDIO;})();`n})()"
+    if ($Application -eq 'workbuddy') { return New-WorkBuddyReadyBootstrapJs ('await ' + $bootstrap + ';') }
+    return $bootstrap
 }
 
 . (Join-Path $PSScriptRoot 'skin-operation.ps1')

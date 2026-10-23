@@ -13,7 +13,7 @@ Assert ($wb.menu -eq 'rgb(32, 38, 48)' -and $wb.ink -eq 'rgb(238, 241, 246)' -an
 Assert ($wb.shell -eq 'rgba(0, 0, 0, 0)' -and $wb.blur -in @('none','blur(0px)') -and $wb.single) 'WorkBuddy wallpaper was stacked or blurred'
 Assert ($wb.disabled -eq '0.4' -and $wb.send -eq 'rgb(20, 127, 153)') 'WorkBuddy semantic button states were changed'
 $bad="document.body.dataset.applicationName='guest';" + $wbStyle
-$denied=(Invoke-Cdp $ws 84 'Runtime.evaluate' @{expression=$bad;returnByValue=$true})|ConvertFrom-Json
+$denied=(Invoke-Cdp $ws 84 'Runtime.evaluate' @{expression=$bad;returnByValue=$true;awaitPromise=$true})|ConvertFrom-Json
 Assert ([bool]$denied.result.exceptionDetails) 'WorkBuddy renderer identity was not verified'
 [void](Invoke-Cdp $ws 85 'Runtime.evaluate' @{expression="document.body.dataset.applicationName='workbuddy';document.body.className='agent-ui-theme vscode-light';";returnByValue=$true})
 [void](Invoke-Cdp $ws 86 'Runtime.evaluate' @{expression=$wbStyle;returnByValue=$true})
@@ -31,3 +31,17 @@ Assert (-not $settingsResult.result.exceptionDetails) 'WorkBuddy settings window
 $settingsCheck=((Invoke-Cdp $ws 90 'Runtime.evaluate' @{expression="document.body.classList.contains('vscode-dark')&&document.body.hasAttribute('data-skin-studio-workbuddy')&&window.__SKIN_STUDIO_APPEARANCE.mode==='dark'";returnByValue=$true})|ConvertFrom-Json).result.result.value
 Assert $settingsCheck 'WorkBuddy settings fallback did not synchronize appearance'
 [void](Invoke-Cdp $ws 91 'Runtime.evaluate' @{expression="history.replaceState(null,'',window.__wbFixtureUrl);document.body.dataset.applicationName='workbuddy';document.body.className='agent-ui-theme vscode-light';document.querySelector('.settings-window-root').remove();delete window.workbuddyDesktop;";returnByValue=$true})
+
+# A newly connected renderer can exist before its native identity marker.
+# Wait before either appearance synchronization or custom visual CSS executes.
+$delayedSetup="delete document.body.dataset.applicationName;window.__wbStart=performance.now();setTimeout(()=>{document.body.dataset.applicationName='workbuddy'},450);true"
+[void](Invoke-Cdp $ws 92 'Runtime.evaluate' @{expression=$delayedSetup;returnByValue=$true})
+$delayedJs=New-SkinBootstrapJs workbuddy $pack @{readability=$true;syncAppearance=$false;visual=@{panelOpacity=43;blur=0;position='right'}}
+$delayed=(Invoke-Cdp $ws 93 'Runtime.evaluate' @{expression=$delayedJs;returnByValue=$true;awaitPromise=$true})|ConvertFrom-Json
+Assert (-not $delayed.result.exceptionDetails) 'WorkBuddy cold-start marker race failed with appearance sync disabled'
+$elapsed=((Invoke-Cdp $ws 94 'Runtime.evaluate' @{expression="({elapsed:performance.now()-window.__wbStart,custom:document.documentElement.dataset.skinVisual,style:!!document.getElementById('skin-studio-style')})";returnByValue=$true})|ConvertFrom-Json).result.result.value
+Assert ($elapsed.elapsed -ge 400 -and $elapsed.custom -eq 'custom' -and $elapsed.style) 'WorkBuddy readiness did not precede visual overrides'
+[void](Invoke-Cdp $ws 95 'Runtime.evaluate' @{expression=$delayedSetup;returnByValue=$true})
+$delayedJs=New-SkinBootstrapJs workbuddy $settingsPack @{readability=$true;syncAppearance=$true}
+$delayed=(Invoke-Cdp $ws 96 'Runtime.evaluate' @{expression=$delayedJs;returnByValue=$true;awaitPromise=$true})|ConvertFrom-Json
+Assert (-not $delayed.result.exceptionDetails) 'WorkBuddy cold-start race failed before native appearance synchronization'

@@ -1,4 +1,38 @@
 ﻿# WorkBuddy Electron renderer. Native controls and semantic action colors are preserved.
+function Get-WorkBuddyReadyExpression {
+    return @'
+(()=>!!document.body&&(document.body.dataset.applicationName==='workbuddy'||
+ (new URL(location.href).searchParams.get('windowKind')==='settings'&&!!window.workbuddyDesktop&&!!document.querySelector('.settings-window-root'))))()
+'@
+}
+
+function Test-WorkBuddyTargetReady {
+    param($Target)
+    $ws=$null
+    try {
+        $ws=Connect-CdpWs $Target.webSocketDebuggerUrl
+        $response=(Invoke-Cdp $ws 72 'Runtime.evaluate' @{expression=(Get-WorkBuddyReadyExpression);returnByValue=$true} -TimeoutMs 1500)|ConvertFrom-Json
+        return -not $response.error -and -not $response.result.exceptionDetails -and $response.result.result.value -eq $true
+    } catch { return $false }
+    finally { if($ws){Disconnect-CdpWs $ws} }
+}
+
+function New-WorkBuddyReadyBootstrapJs {
+    param([string]$Body)
+    $ready=Get-WorkBuddyReadyExpression
+    return @"
+(async()=>{
+ const started=performance.now();
+ while(!($ready)){
+   if(performance.now()-started>=5000)throw Error('WorkBuddy renderer is still initializing. Retry after the app window finishes opening.');
+   await new Promise(resolve=>setTimeout(resolve,75));
+ }
+ $Body
+ return window.__SKIN_STUDIO;
+})()
+"@
+}
+
 function New-WorkBuddyStyleBootstrapJs {
     param($ThemePack, $Options)
     $css = @'

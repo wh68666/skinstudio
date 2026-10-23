@@ -15,6 +15,7 @@
     function Push-ThemeToTarget { param($Target,$BootstrapJs,$LogPath,$ErrorInfo) $ErrorInfo.message='fixture script error'; return $probe.push }
     function Test-TargetSkinEffect { param($Target,$Application,$Marker,$HasWallpaper) return @{ok=$probe.verify;reason='fixture style missing'} }
     function Test-SkinAppAccessDenied { param($Application,$AppExe) return $Application -eq 'workbuddy' -and [bool]$probe.accessDenied }
+    function Test-WorkBuddyTargetReady { param($Target) return [bool]$probe.rendererReady }
     $spec=@{Application='codex';AppExe='fixture.exe';Port=19223;ThemeDir='fixture';LogPath=(Join-Path $temp 'operation.log');Options=@{};ConnectionTimeoutSec=0}
     $events=New-Object 'Collections.Generic.List[object]'
     $spec.Progress={param($event) $events.Add($event)}
@@ -50,6 +51,12 @@
         $health=Get-SkinApplicationState codex 'fixture.exe' 19223
         Assert ($health.state -eq $case.state) ('Application state incorrect: '+$case.state)
     }
+    $probe.invalid=$false;$probe.running=$true;$probe.owned=$true;$probe.targets=$true;$probe.verify=$true;$probe.push=$true
+    $spec.Application='workbuddy';$probe.rendererReady=$false;$before=$probe.starts;$caught=$null
+    try { Invoke-SkinOperation @spec | Out-Null } catch { $caught=$_ }
+    Assert ($caught.Exception.Data['SkinCode'] -eq 'CONNECTION_TIMEOUT' -and $caught.Exception.Data['SkinStage'] -eq 'connect' -and $probe.starts -eq $before) 'Pending WorkBuddy page was injected or reported an apply failure'
+    $probe.rendererReady=$true
+    Assert (Invoke-SkinOperation @spec).ok 'Initialized WorkBuddy page did not pass the connection barrier'
     $probe.accessDenied=$true
     Assert ((Get-SkinApplicationState workbuddy 'fixture.exe' 19223).reason -eq 'process_access_denied') 'Elevated WorkBuddy was shown stopped'
     $spec.Application='workbuddy';$before=$probe.starts;$beforeStops=$probe.stops;$caught=$null

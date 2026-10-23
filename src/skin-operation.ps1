@@ -94,6 +94,13 @@ function Invoke-SkinOperation {
                 }
             } else {
                 try { $targets=@(Get-SkinTargets $Application $AppExe $Port) } catch { $lastConnectionError=$_.Exception.Message }
+                if ($targets.Count -and $Application -eq 'workbuddy') {
+                    $notReady=@($targets | Where-Object { -not (Test-WorkBuddyTargetReady $_) })
+                    if ($notReady.Count) {
+                        $lastConnectionError='WorkBuddy renderer is still initializing; waiting for the app UI.'
+                        $targets=@()
+                    }
+                }
                 if ($targets.Count) { break }
             }
             if ((Get-Date) -ge $deadline) { break }
