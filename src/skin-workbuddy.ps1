@@ -82,6 +82,28 @@ html[data-skin-studio="workbuddy"] :is(.conversation-shell__main,.conversation-s
 html[data-skin-studio="workbuddy"] :is(.sidebar-next,.workbuddy-topbar,.conversation-page-chrome__header){
  background-color:color-mix(in srgb,var(--ss-wb-panel) var(--ss-wb-glass),transparent) !important;backdrop-filter:var(--ss-wb-filter);
 }
+/* One reading surface behind the list; rows no longer stack opaque cards. */
+html[data-skin-studio="workbuddy"] .conversation-sidebar :is(.collapsible-section-header,.conversation-agent-card){
+ background:transparent !important;box-shadow:none;
+}
+html[data-skin-studio="workbuddy"] .conversation-sidebar .conversation-section-label{
+ background:color-mix(in srgb,var(--ss-wb-panel) 14%,transparent) !important;backdrop-filter:blur(4px);
+}
+html[data-skin-studio="workbuddy"] .conversation-sidebar :is(.conversation-section-label,.collapsible-section-header,.conversation-agent-card):hover{
+ background:color-mix(in srgb,var(--ss-wb-ink) 7%,transparent) !important;
+}
+html[data-skin-studio="workbuddy"] .conversation-sidebar .conversation-agent-card:is([class*="_selected_"],[aria-selected="true"],[data-state="selected"]){
+ background:color-mix(in srgb,var(--ss-wb-ink) 12%,transparent) !important;
+ box-shadow:inset 2px 0 color-mix(in srgb,var(--ss-wb-ink) 40%,transparent);
+}
+/* The promotion card owns an open shadow root. Its public host variables
+   style current and future slides without editing or observing shadow DOM. */
+html[data-skin-studio="workbuddy"] .conversation-sidebar .wb-slot--avatar-top-combo{
+ --cd:color-mix(in srgb,var(--ss-wb-panel) 24%,transparent);
+ --bd:var(--ss-wb-line);--t1:var(--ss-wb-ink);
+ --t3:color-mix(in srgb,var(--ss-wb-ink) 76%,transparent);
+ --dsub:color-mix(in srgb,var(--ss-wb-ink) 76%,transparent);
+}
 html[data-skin-studio="workbuddy"] .cr-input-container{
  background:var(--ss-wb-card) !important;border-color:var(--ss-wb-line) !important;box-shadow:0 4px 18px #00000010;
 }
@@ -114,7 +136,7 @@ html[data-skin-studio="workbuddy"] pre{background-color:var(--ss-wb-card) !impor
         $css += 'html[data-skin-studio="workbuddy"] body{background-image:url("' + $image + '") !important;background-size:' + $fit + ' !important;background-position:' + $position + ' !important;background-repeat:no-repeat !important;background-attachment:fixed !important;}'
     }
     $cssJson = $css | ConvertTo-Json -Compress
-    $markerJson = (Get-SkinMarker $ThemePack $Options) | ConvertTo-Json -Compress
+    $markerJson = (Get-SkinMarker $ThemePack $Options workbuddy) | ConvertTo-Json -Compress
     $readability = if (Test-SkinReadability $Options) { 'on' } else { 'off' }
     return @"
 (()=>{

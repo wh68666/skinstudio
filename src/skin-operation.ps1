@@ -119,7 +119,7 @@ function Invoke-SkinOperation {
         }
         if (-not $applied.Count) { Throw-SkinOperationError 'APPLY_FAILED' ($failures -join '; ') }
         $stage='verify'; & $report 'verify' 'checking_style'
-        $expected=Get-SkinMarker $pack $Options; $verified=0
+        $expected=Get-SkinMarker $pack $Options $Application; $verified=0
         foreach ($target in $applied) {
             $check=Test-TargetSkinEffect $target $Application $expected ([bool]$pack.BgPath)
             if ($check.ok) { $verified++ } else { $failures += ([string]$target.id + ': ' + $check.reason) }

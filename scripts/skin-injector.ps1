@@ -13,7 +13,7 @@ try {
         if (-not $profile.currentTheme -or -not $profile.appExe -or -not @(Get-SkinAppProcesses $profile.appExe).Count) { break }
         try {
             $pack = Get-ThemePack (Join-Path (Join-Path $DataRoot 'themes') $profile.currentTheme)
-            $nextMarker = Get-SkinMarker $pack $profile
+            $nextMarker = Get-SkinMarker $pack $profile $Application
             if ($cachedTheme -ne $nextMarker) { $js = New-SkinBootstrapJs $Application $pack $profile; $marker = $nextMarker; $cachedTheme = $nextMarker }
             foreach ($target in @(Get-SkinTargets $Application $profile.appExe $profile.port)) {
                 if ((Get-TargetSkinMarker $target) -ne $marker) { [void](Push-ThemeToTarget $target $js $log) }

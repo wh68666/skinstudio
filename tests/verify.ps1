@@ -202,8 +202,8 @@ try {
                 Start-Sleep -Milliseconds 250
             } finally { Disconnect-CdpWs $ws }
             Assert (Push-ThemeToTarget $target $scripts[$id] (Join-Path $temp 'cdp.log')) ('Injection failed: ' + $id)
-            Assert ((Get-TargetSkinMarker $target) -eq (Get-SkinMarker $pack @{ readability = $false; syncAppearance = $false })) ('Marker missing: ' + $id)
-            $effect=Test-TargetSkinEffect $target $id (Get-SkinMarker $pack @{readability=$false;syncAppearance=$false}) $true
+            Assert ((Get-TargetSkinMarker $target) -eq (Get-SkinMarker $pack @{ readability = $false; syncAppearance = $false } $id)) ('Marker missing: ' + $id)
+            $effect=Test-TargetSkinEffect $target $id (Get-SkinMarker $pack @{readability=$false;syncAppearance=$false} $id) $true
             Assert $effect.ok ('Independent style/wallpaper verification failed: '+$id+' / '+$effect.reason)
             Assert (-not (Test-TargetSkinEffect $target $id 'wrong-marker' $true).ok) 'Wrong theme marker passed verification'
             $ws = Connect-CdpWs $target.webSocketDebuggerUrl

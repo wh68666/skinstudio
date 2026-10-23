@@ -3,6 +3,14 @@ $wbSetup = @'
 (()=>{document.body.className='agent-ui-theme vscode-dark';const host=document.createElement('div');host.id='wb-fixture';host.innerHTML='<div class="conversation-shell"><div class="conversation-shell__main">Chat<pre>const code = 1</pre><div class="cr-input-container"><button id="wb-send" style="background:rgb(20,127,153);color:white">Send</button></div></div></div><div role="dialog">Settings</div><div role="menu">Menu<button disabled id="wb-disabled" style="opacity:.4">Disabled</button></div>';document.getElementById('root').appendChild(host);return true})()
 '@
 [void](Invoke-Cdp $ws 81 'Runtime.evaluate' @{expression=$wbSetup;returnByValue=$true})
+$sidebarSetup=@'
+(()=>{const host=document.getElementById('wb-fixture'),sidebar=document.createElement('aside');sidebar.className='conversation-sidebar';sidebar.innerHTML='<div class="conversation-section-label" style="background:white;position:sticky;top:0">Tasks</div><div class="collapsible-section-header" style="background:white">Project</div><div class="conversation-agent-card _selected_fixture" style="background:white">Selected</div><div class="conversation-agent-card" style="background:white">Other</div><div class="wb-slot--avatar-top-combo" data-theme="dark"></div>';host.appendChild(sidebar);const shadow=sidebar.querySelector('.wb-slot--avatar-top-combo').attachShadow({mode:'open'});shadow.innerHTML='<style>:host{--cd:#fff;--t1:#111}.cb{background:var(--cd);color:var(--t1)}</style><div class="cb">Promotion<button style="background:rgb(20,127,153);color:white">Action</button></div>';return true})()
+'@
+[void](Invoke-Cdp $ws 811 'Runtime.evaluate' @{expression=$sidebarSetup;returnByValue=$true})
+$sidebarProbe=@'
+(()=>{const sidebar=document.querySelector('#wb-fixture .conversation-sidebar'),shadow=sidebar.querySelector('.wb-slot--avatar-top-combo').shadowRoot,c=document.createElement('canvas').getContext('2d');function alpha(e){c.clearRect(0,0,1,1);c.fillStyle=getComputedStyle(e).backgroundColor;c.fillRect(0,0,1,1);return c.getImageData(0,0,1,1).data[3]/255}return {header:alpha(sidebar.querySelector('.conversation-section-label')),project:alpha(sidebar.querySelector('.collapsible-section-header')),selected:alpha(sidebar.querySelector('._selected_fixture')),other:alpha(sidebar.querySelector('.conversation-agent-card:not(._selected_fixture)')),promo:alpha(shadow.querySelector('.cb')),promoInk:getComputedStyle(shadow.querySelector('.cb')).color,action:getComputedStyle(shadow.querySelector('button')).backgroundColor,sticky:getComputedStyle(sidebar.querySelector('.conversation-section-label')).position}})()
+'@
+
 $wbStyle = New-SkinBootstrapJs workbuddy $pack @{readability=$true;syncAppearance=$false}
 [void](Invoke-Cdp $ws 82 'Runtime.evaluate' @{expression=$wbStyle;returnByValue=$true})
 $wbProbe = @'
@@ -19,6 +27,14 @@ Assert ([bool]$denied.result.exceptionDetails) 'WorkBuddy renderer identity was 
 [void](Invoke-Cdp $ws 86 'Runtime.evaluate' @{expression=$wbStyle;returnByValue=$true})
 $wb=((Invoke-Cdp $ws 87 'Runtime.evaluate' @{expression=$wbProbe;returnByValue=$true})|ConvertFrom-Json).result.result.value
 Assert ($wb.menu -eq 'rgb(248, 250, 252)' -and $wb.ink -eq 'rgb(23, 33, 45)' -and $wb.single) 'WorkBuddy light menu or repeated injection failed'
+foreach($mode in @('dark','light')){
+ [void](Invoke-Cdp $ws 812 'Runtime.evaluate' @{expression="document.body.classList.toggle('vscode-dark','$mode'==='dark');";returnByValue=$true})
+ $sidebar=((Invoke-Cdp $ws 813 'Runtime.evaluate' @{expression=$sidebarProbe;returnByValue=$true})|ConvertFrom-Json).result.result.value
+ $ink=if($mode -eq 'dark'){'rgb(238, 241, 246)'}else{'rgb(23, 33, 45)'}
+ Assert ($sidebar.header -lt .2 -and $sidebar.project -eq 0 -and $sidebar.other -eq 0 -and $sidebar.selected -gt .08 -and $sidebar.selected -lt .2) ('WorkBuddy sidebar still has opaque rows or lost selection: '+$mode)
+ Assert ($sidebar.promo -lt .3 -and $sidebar.promoInk -eq $ink -and $sidebar.action -eq 'rgb(20, 127, 153)' -and $sidebar.sticky -eq 'sticky') ('WorkBuddy shadow card/theme semantics or sticky headings regressed: '+$mode)
+}
+
 $settingsSetup = @'
 (()=>{window.__wbFixtureUrl=location.href;history.replaceState(null,'','?windowKind=settings');delete document.body.dataset.applicationName;document.body.className='settings-window vscode-light';window.workbuddyDesktop={};const settings=document.createElement('div');settings.className='settings-window-root';document.body.appendChild(settings);return true})()
 '@

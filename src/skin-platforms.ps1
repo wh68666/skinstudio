@@ -17,9 +17,15 @@ function Test-SkinReadability {
     return $true
 }
 
+function Get-SkinAdapterRevision {
+    param([string]$Application)
+    if ($Application -eq 'workbuddy') { return '2.8.2' }
+    return $script:SkinRuntimeRevision
+}
+
 function Get-SkinMarker {
-    param($ThemePack, $Options)
-    $marker = [string]$ThemePack.Meta.id + '@' + [string]$ThemePack.Meta.version + '#' + $script:SkinRuntimeRevision + ':r' + [int](Test-SkinReadability $Options) + ':a' + [int](Test-SkinAppearanceSync $Options)
+    param($ThemePack, $Options, [string]$Application)
+    $marker = [string]$ThemePack.Meta.id + '@' + [string]$ThemePack.Meta.version + '#' + (Get-SkinAdapterRevision $Application) + ':r' + [int](Test-SkinReadability $Options) + ':a' + [int](Test-SkinAppearanceSync $Options)
     $visual = Get-SkinVisualAdjustment $Options ([string]$ThemePack.Meta.id)
     if ($visual) { $marker += ':v' + $visual.panelOpacity + '-' + $visual.blur + '-' + $visual.position }
     return $marker
@@ -278,7 +284,7 @@ function Get-SkinPalette {
 
 function New-SkinBaseStyleBootstrapJs {
     param([string]$Application = 'zcode', $ThemePack, $Options)
-    $marker = (Get-SkinMarker $ThemePack $Options) | ConvertTo-Json -Compress
+    $marker = (Get-SkinMarker $ThemePack $Options $Application) | ConvertTo-Json -Compress
     if ($Application -eq 'workbuddy') { return New-WorkBuddyStyleBootstrapJs $ThemePack $Options }
     if ($Application -eq 'opencode') { return New-OpenCodeStyleBootstrapJs $ThemePack $Options }
     if ($Application -eq 'zcode') {

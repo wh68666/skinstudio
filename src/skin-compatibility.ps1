@@ -14,7 +14,7 @@ function Get-SkinAppIdentity {
     $asar=Join-Path (Split-Path $AppExe) 'resources\app.asar'
     if (Test-Path -LiteralPath $asar -PathType Leaf) { $files += Get-Item -LiteralPath $asar }
     $stamp=(@($files | ForEach-Object {$_.FullName+'|'+$_.Length+'|'+$_.LastWriteTimeUtc.Ticks}) -join ';')
-    if ($Previous -and $Previous.stamp -eq $stamp) { return @{application=$Application;version=$Previous.version;fingerprint=$Previous.fingerprint;stamp=$stamp;adapter=$script:SkinRuntimeRevision;suite=$script:SkinCompatibilitySuite} }
+    if ($Previous -and $Previous.stamp -eq $stamp) { return @{application=$Application;version=$Previous.version;fingerprint=$Previous.fingerprint;stamp=$stamp;adapter=(Get-SkinAdapterRevision $Application);suite=$script:SkinCompatibilitySuite} }
     $version=[string]$files[0].VersionInfo.ProductVersion
     if ($Application -eq 'codex' -and $AppExe -match 'OpenAI\.Codex_([0-9.]+)_') { $version=$Matches[1] }
     if (-not $version) { $version=[string]$files[0].VersionInfo.FileVersion }
@@ -23,7 +23,7 @@ function Get-SkinAppIdentity {
     $bytes=[Text.Encoding]::UTF8.GetBytes($Application+'|'+$version+'|'+($hashes -join '|'))
     $sha=[Security.Cryptography.SHA256]::Create()
     try { $fingerprint=([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-','').ToLowerInvariant() } finally {$sha.Dispose()}
-    return @{application=$Application;version=$version;fingerprint=$fingerprint;stamp=$stamp;adapter=$script:SkinRuntimeRevision;suite=$script:SkinCompatibilitySuite}
+    return @{application=$Application;version=$version;fingerprint=$fingerprint;stamp=$stamp;adapter=(Get-SkinAdapterRevision $Application);suite=$script:SkinCompatibilitySuite}
 }
 function Read-SkinCompatibilityRecords([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path)) { return @() }

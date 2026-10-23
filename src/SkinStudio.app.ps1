@@ -30,7 +30,7 @@ if (-not (Test-Path $libPath)) { throw 'skin-lib.ps1 not found next to the app' 
 $script:LibPath = $libPath
 
 # app version + update check endpoint (GitHub Release, public repo required)
-$script:AppVersion = '2.8.1'
+$script:AppVersion = '2.8.2'
 $script:UpdateApiUrl = 'https://api.github.com/repos/wh68666/skinstudio/releases/latest'
 $script:NotifiedTag = ''
 
@@ -103,7 +103,7 @@ function Get-CurrentBootstrap {
     if (-not (Test-Path $dir)) { return $null }
     try {
         $pack = Get-ThemePack -ThemeDir $dir
-        $State.Marker = Get-SkinMarker $pack $Cfg
+        $State.Marker = Get-SkinMarker $pack $Cfg $Settings.activeApp
         return (New-SkinBootstrapJs -Application $Settings.activeApp -ThemePack $pack -Options $Cfg)
     } catch { Write-AppLog ("bootstrap build failed: " + $_.Exception.Message); return $null }
 }
@@ -975,7 +975,7 @@ $watchWork = {
             $pages = @(Get-SkinTargets $profile.Application $profile.AppExe $profile.Port)
             if (-not $pages.Count) { continue }
             $pack = Get-ThemePack $profile.ThemeDir
-            $marker = Get-SkinMarker $pack $profile.Options
+            $marker = Get-SkinMarker $pack $profile.Options $profile.Application
             $js = $null
             foreach ($target in $pages) {
                 if ((Get-TargetSkinMarker $target) -eq $marker) { continue }

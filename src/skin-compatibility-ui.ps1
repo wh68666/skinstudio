@@ -116,7 +116,7 @@ function Test-SkinCompatibilityUi {
     try {
         [IO.File]::WriteAllBytes($shot,[Convert]::FromBase64String('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6WQAAAABJRU5ErkJggg=='))
         $State.Health=@{}
-        $State.Health[$Settings.activeApp]=@{identity=@{application=$Settings.activeApp;version='QA build';fingerprint=('a'*64);adapter=$script:SkinRuntimeRevision;suite=$script:SkinCompatibilitySuite};compatibility=@{state='untested';records=@()}}
+        $State.Health[$Settings.activeApp]=@{identity=@{application=$Settings.activeApp;version='QA build';fingerprint=('a'*64);adapter=(Get-SkinAdapterRevision $Settings.activeApp);suite=$script:SkinCompatibilitySuite};compatibility=@{state='untested';records=@()}}
         foreach($lang in $script:LangCodes){$Cfg.lang=$lang;Update-SkinCompatibilityUi;$ui=Show-SkinCompatibilityDialog -Test
             if($ui.grid.Items.Count -ne 14){throw 'Compatibility checklist must contain seven scenes in both modes'}
             $ui.grid.SelectedIndex=0
@@ -125,7 +125,7 @@ function Test-SkinCompatibilityUi {
             $ui.dialog.Close()
         }
         $Cfg.lang='zh-CN';$ui=Show-SkinCompatibilityDialog -Test
-        $script:CompatUiProbeSnapshot=@{pages=@(@{audit=@{mode='light';scenes=@{'long-chat'=@{present=$true}};marker=('fixture@1#'+$script:SkinRuntimeRevision+':r1:a1');styleActive=$true};screenshot=$shot})}
+        $script:CompatUiProbeSnapshot=@{pages=@(@{audit=@{mode='light';scenes=@{'long-chat'=@{present=$true}};marker=('fixture@1#'+(Get-SkinAdapterRevision $Settings.activeApp)+':r1:a1');styleActive=$true};screenshot=$shot})}
         Set-Item Function:script:Start-BackgroundJob -Value {param($Work,$Argument,$Done) & $Done @(@{ok=$true;snapshot=$script:CompatUiProbeSnapshot})}
         $click=[Windows.Controls.Primitives.ButtonBase]::ClickEvent
         $ui.buttons.inspect.RaiseEvent([Windows.RoutedEventArgs]::new($click))
