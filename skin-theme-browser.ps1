@@ -22,7 +22,7 @@ public sealed class SkinStudioThemeCard : INotifyPropertyChanged {
 }
 '@
 }
-$dictionary = [Windows.Markup.XamlReader]::Parse([IO.File]::ReadAllText((Join-Path $AppDir 'theme-cards.xaml')))
+$dictionary = [Windows.Markup.XamlReader]::Parse([IO.File]::ReadAllText((Join-Path $ResourceDir 'theme-cards.xaml')))
 $window.Resources.MergedDictionaries.Add($dictionary)
 foreach ($list in @($themeList,$galleryList)) {
     $list.ItemTemplate = $dictionary['ThemeCardTemplate']; $list.ItemContainerStyle = $dictionary['ThemeCardContainer']; $list.ItemsPanel = $dictionary['ThemeCardPanel']
@@ -42,11 +42,11 @@ $script:ThumbnailJobs = 0
 $script:GalleryVisibleLimit = 24
 $script:GalleryMatchedCount = 0
 $script:ThumbnailCacheDir = Join-Path $AppDir 'assets\thumbnails'
-. (Join-Path $AppDir 'skin-thumbnails.ps1')
+. (Join-Path $ResourceDir 'skin-thumbnails.ps1')
 $script:ThumbnailFailures = @{}
 
 function Request-ThemeThumbnail($Card, [string]$Path, [switch]$Remote) {
-    $spec = @{ Module = (Join-Path $AppDir 'skin-thumbnails.ps1'); Remote = [bool]$Remote; Id = $Card.Id; Path = $Path; CacheDir = $script:ThumbnailCacheDir }
+    $spec = @{ Module = (Join-Path $ResourceDir 'skin-thumbnails.ps1'); Remote = [bool]$Remote; Id = $Card.Id; Path = $Path; CacheDir = $script:ThumbnailCacheDir }
     if ($Remote) {
         if ($Card.Id -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$') { $Card.PreviewHint=(Get-ThemeBrowserLabels).unavailable; return }
         $key = 'remote:' + $Card.Id
@@ -333,7 +333,7 @@ function Test-ThemeBrowser {
         }
         # Exercise the actual decode runspace and observable VM image handoff.
         $row=$themeList.Items[0]; $key=$row.ThumbKey; $row.Thumbnail=$null
-        $script:ThumbnailQueue.Enqueue(@{Module=(Join-Path $AppDir 'skin-thumbnails.ps1');Remote=$false;Key=$key;Path=(Join-Path $ThemesDir 'aurora\background.jpg')})
+        $script:ThumbnailQueue.Enqueue(@{Module=(Join-Path $ResourceDir 'skin-thumbnails.ps1');Remote=$false;Key=$key;Path=(Join-Path $ThemesDir 'aurora\background.jpg')})
         $script:ThumbnailQueued[$key]=$true
         $originalSelfTest=$script:SelfTest
         try { $script:SelfTest=$false; Start-ThemeThumbnailJobs } finally { $script:SelfTest=$originalSelfTest }

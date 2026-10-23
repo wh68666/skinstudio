@@ -3,7 +3,9 @@
 # Run dev:  powershell -NoProfile -ExecutionPolicy Bypass -File SkinStudio.app.ps1
 # Build:    app\build.ps1  (ps2exe -> SkinStudio.exe)
 param(
-    [switch]$SelfTest
+    [switch]$SelfTest,
+    [string]$DataDirectory,
+    [string]$LegacyDirectory
 )
 # self-unblock: double-clicked exes have no Bypass env; loading companion .ps1
 # files is blocked under the default Restricted policy - fix at process scope
@@ -12,21 +14,21 @@ try { Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force -ErrorAc
 }
 $ErrorActionPreference = 'Stop'
 
-# ---- locate app dir (works both as script and compiled exe) ----
-$script:AppDir = $PSScriptRoot
-if (-not $AppDir -or $AppDir -match '\\Temp\\') {
-    try { $script:AppDir = Split-Path -Parent ([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName) } catch { }
-}
-if (-not $AppDir) { $script:AppDir = (Get-Location).Path }
+# ---- resources are immutable; data survives moving/upgrading the executable ----
+$script:ResourceDir = $PSScriptRoot
+if (-not $ResourceDir) { throw 'Program resource directory unavailable' }
+. (Join-Path $ResourceDir 'skin-storage.ps1')
+if(-not $DataDirectory){$DataDirectory=$ResourceDir}
+$script:AppDir=Initialize-SkinDataDirectory $DataDirectory $ResourceDir $LegacyDirectory -SelfTest:$SelfTest
 
-$libPath = Join-Path $AppDir 'skin-lib.ps1'
+$libPath = Join-Path $ResourceDir 'skin-lib.ps1'
 if (-not (Test-Path $libPath)) { $libPath = Join-Path (Split-Path -Parent $AppDir) 'skin-lib.ps1' }
 if (-not (Test-Path $libPath)) { throw 'skin-lib.ps1 not found next to the app' }
 . $libPath
 $script:LibPath = $libPath
 
 # app version + update check endpoint (GitHub Release, public repo required)
-$script:AppVersion = '2.7.0'
+$script:AppVersion = '2.7.1'
 $script:UpdateApiUrl = 'https://api.github.com/repos/wh68666/skinstudio/releases/latest'
 $script:NotifiedTag = ''
 
@@ -40,6 +42,7 @@ $script:LogPath = Join-Path $AppDir 'logs\app.log'
 Add-Type -AssemblyName System.Windows.Forms
 $script:Mutex = New-Object Threading.Mutex($false, 'Local\SkinStudioTray')
 if (-not $script:Mutex.WaitOne(0)) {
+    if($SelfTest){throw 'Close the running SkinStudio instance before SelfTest.'}
     [System.Windows.Forms.MessageBox]::Show('SkinStudio is already running.', 'SkinStudio') | Out-Null
     exit 0
 }
@@ -673,6 +676,7 @@ __ZC_ICON_RESOURCES__
     <TextBlock x:Name="HintText" Text="" TextWrapping="Wrap" Foreground="{DynamicResource Manager.Muted}" Margin="0,6,0,0"/>
     </StackPanel>
     <DockPanel Grid.Row="4" Margin="0,6,0,0">
+      <Button x:Name="BtnDataFolder" DockPanel.Dock="Left" Content="Data folder" Padding="8,3" HorizontalAlignment="Left" Margin="0,0,8,0"/>
       <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
         <Hyperlink x:Name="RepoLink" NavigateUri="https://github.com/wh68666/skinstudio" Foreground="{DynamicResource Manager.Accent}" TextDecorations="None">
           <Run x:Name="VerRun" Text="v"/><Run Text="  |  github.com/wh68666/skinstudio"/>
@@ -708,7 +712,8 @@ $verRun = $window.FindName('VerRun')
 # footer: live version + repo link (opens in browser)
 try { $verRun.Text = 'v' + $script:AppVersion } catch { }
 $repoLink.Add_RequestNavigate({ param($s, $e) try { [void][Diagnostics.Process]::Start($e.Uri.AbsoluteUri) } catch { }; $e.Handled = $true })
-. (Join-Path $AppDir 'skin-manager-theme.ps1')
+. (Join-Path $ResourceDir 'skin-manager-theme.ps1')
+$window.FindName('BtnDataFolder').Add_Click({[void](Start-Process explorer.exe -ArgumentList ('"'+$AppDir+'"'))})
 
 # ---- language (en / zh-CN / zh-TW) ----
 $script:LangCodes = @('en', 'zh-CN', 'zh-TW')
@@ -807,6 +812,8 @@ function Set-Lang([string]$lang) {
     $script:Cfg.lang = $lang
     $script:L = Get-LangTable $lang
     $window.Title = $L.winTitle
+    $window.FindName('BtnDataFolder').Content=if($lang -eq 'zh-CN'){'数据目录'}elseif($lang -eq 'zh-TW'){'資料目錄'}else{'Data folder'}
+    $window.FindName('BtnDataFolder').ToolTip=$AppDir
     Sync-SkinManagerThemeUi
     $btnSettings.Content = $L.appSettings
     Sync-ReadabilityControl
@@ -1082,10 +1089,10 @@ $btnSettings.Add_Click({
 })
 
 # ---- boot ----
-. (Join-Path $AppDir 'skin-theme-browser.ps1')
-. (Join-Path $AppDir 'skin-visual-ui.ps1')
-. (Join-Path $AppDir 'skin-status-ui.ps1')
-. (Join-Path $AppDir 'skin-compatibility-ui.ps1')
+. (Join-Path $ResourceDir 'skin-theme-browser.ps1')
+. (Join-Path $ResourceDir 'skin-visual-ui.ps1')
+. (Join-Path $ResourceDir 'skin-status-ui.ps1')
+. (Join-Path $ResourceDir 'skin-compatibility-ui.ps1')
 if (-not $Cfg.lang) {
     $c = [System.Globalization.CultureInfo]::CurrentUICulture.Name
     if (@('zh-TW', 'zh-HK', 'zh-MO', 'zh-Hant') -contains $c) { $Cfg.lang = 'zh-TW' } elseif ($c -like 'zh*') { $Cfg.lang = 'zh-CN' } else { $Cfg.lang = 'en' }
@@ -1120,6 +1127,7 @@ if ($SelfTest) {
     Complete-SkinWatch
     if ($State.WatchBusy -or $State.QueuedAction -or -not $queueProbe.Ran) { throw 'Queued action was lost after watcher completion' }
     $lines = @('SkinStudio ' + $script:AppVersion)
+    $lines += @(('resources='+$ResourceDir),('data='+$AppDir))
     foreach ($id in $script:SkinApps.Keys) {
         $pack = Get-ThemePack (Join-Path $ThemesDir 'aurora')
         $js = New-SkinBootstrapJs $id $pack

@@ -42,21 +42,28 @@ if(-not $release){
     $body=@{tag_name=$tag;target_commitish=$head;name='SkinStudio '+$tag;body=$notes;draft=$true;prerelease=$false}|ConvertTo-Json
     $release=Invoke-RestMethod -Uri ($api+'/releases') -Method Post -Headers $headers -Body ([Text.Encoding]::UTF8.GetBytes($body)) -ContentType 'application/json; charset=utf-8'
 }
-$sha=[Security.Cryptography.SHA256]::Create();$stream=[IO.File]::OpenRead($zipPath)
-try {$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').ToLowerInvariant()}finally{$stream.Dispose();$sha.Dispose()}
-$asset=@($release.assets|Where-Object name -eq $assetName)|Select-Object -First 1
-if($asset){
-    if($asset.size -ne (Get-Item -LiteralPath $zipPath).Length -or ($asset.digest -and $asset.digest -ne ('sha256:'+$hash))){throw 'Existing release asset differs; it was not replaced'}
-}else{
-    $upload='https://uploads.github.com/repos/'+$repo+'/releases/'+$release.id+'/assets?name='+[Uri]::EscapeDataString($assetName)
-    $asset=Invoke-RestMethod -Uri $upload -Method Post -Headers $headers -InFile $zipPath -ContentType 'application/zip'
+foreach($kind in @('exe','zip')){
+    $assetName='SkinStudio-v'+$version+'.'+$kind
+    $assetPath=Join-Path $root ('release\'+$assetName)
+    if(-not (Test-Path -LiteralPath $assetPath)){throw ('Build asset missing: '+$assetName)}
+    $sha=[Security.Cryptography.SHA256]::Create();$stream=[IO.File]::OpenRead($assetPath)
+    try {$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').ToLowerInvariant()}finally{$stream.Dispose();$sha.Dispose()}
+    $asset=@($release.assets|Where-Object name -eq $assetName)|Select-Object -First 1
+    if($asset){
+        if($asset.size -ne (Get-Item -LiteralPath $assetPath).Length -or ($asset.digest -and $asset.digest -ne ('sha256:'+$hash))){throw 'Existing release asset differs; it was not replaced'}
+    }else{
+        $upload='https://uploads.github.com/repos/'+$repo+'/releases/'+$release.id+'/assets?name='+[Uri]::EscapeDataString($assetName)
+        $type=if($kind -eq 'zip'){'application/zip'}else{'application/octet-stream'}
+        $asset=Invoke-RestMethod -Uri $upload -Method Post -Headers $headers -InFile $assetPath -ContentType $type
+    }
+    if($asset.size -ne (Get-Item -LiteralPath $assetPath).Length -or $asset.state -ne 'uploaded'){throw 'Uploaded asset verification failed'}
+    if($asset.digest -and $asset.digest -ne ('sha256:'+$hash)){throw 'Uploaded asset checksum mismatch'}
+    'Verified '+$assetName+' SHA256: '+$hash
 }
-if($asset.size -ne (Get-Item -LiteralPath $zipPath).Length -or $asset.state -ne 'uploaded'){throw 'Uploaded asset verification failed'}
-if($asset.digest -and $asset.digest -ne ('sha256:'+$hash)){throw 'Uploaded asset checksum mismatch'}
 $body=@{name='SkinStudio '+$tag;body=$notes;draft=$false;prerelease=$false;make_latest='true'}|ConvertTo-Json
 $release=Invoke-RestMethod -Uri ($api+'/releases/'+$release.id) -Method Patch -Headers $headers -Body ([Text.Encoding]::UTF8.GetBytes($body)) -ContentType 'application/json; charset=utf-8'
 if($release.draft){throw 'Release is still a draft'}
 'Release: '+$release.html_url
-'Asset: '+$asset.browser_download_url
-'SHA256: '+$hash
+foreach($publishedAsset in $release.assets){'Asset: '+$publishedAsset.browser_download_url}
+
 $headers=$null;$token=$null;$credentialLines=$null

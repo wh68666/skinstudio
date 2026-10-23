@@ -11,6 +11,7 @@ function Assert-Throws([scriptblock]$Work, [string]$Message) {
 $temp = Join-Path ([IO.Path]::GetTempPath()) ('SkinStudio-test-' + [guid]::NewGuid().ToString('N'))
 [void](New-Item $temp -ItemType Directory)
 try {
+    . (Join-Path $PSScriptRoot 'storage.ps1')
     foreach ($file in @(Get-ChildItem $root -Filter *.ps1) + @(Get-ChildItem (Join-Path $root 'app') -Filter *.ps1)) {
         $tokens = $null; $errors = $null
         [void][Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)

@@ -6,7 +6,7 @@ $script:ManagerPalettes=[ordered]@{
     pine=@{Window='#101D1B';Surface='#182B27';Raised='#223832';Input='#20342F';Text='#E1F1E9';Muted='#A9C6B9';Border='#3E6054';Accent='#97DCB8';OnAccent='#123326';AccentSoft='#2B4B3E';Hover='#2A4239';Success='#9AE2B4';SuccessSoft='#244336';Danger='#FFB0BA';DangerSoft='#4A3038';Warning='#EDD197';Mode='dark'}
 }
 $script:ManagerThemeIds=@('system','pearl','midnight','iris','pine')
-$script:ManagerResources=[Windows.Markup.XamlReader]::Parse([IO.File]::ReadAllText((Join-Path $AppDir 'skin-manager-theme.xaml')))
+$script:ManagerResources=[Windows.Markup.XamlReader]::Parse([IO.File]::ReadAllText((Join-Path $ResourceDir 'skin-manager-theme.xaml')))
 $script:ManagerThemeUpdating=$false
 $script:ManagerWindows=New-Object 'Collections.Generic.List[WeakReference]'
 function Get-SkinManagerLabels {

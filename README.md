@@ -7,8 +7,8 @@
 
 ## 使用
 
-1. 解压 `release/SkinStudio-v2.7.0.zip` 到可写的独立目录。
-2. 双击 `SkinStudio.exe`，在窗口左上角选择应用。
+1. 下载单文件 `SkinStudio-v2.7.1.exe`，无需安装或另配脚本；ZIP 版解压后也只有一个 `SkinStudio.exe`。
+2. 双击 EXE，在窗口上方选择应用。
 3. 选主题，点击“应用所选”；支持拖入 ZIP、导入 ZIP、在线图库下载安装。
 4. “程序 / 端口”可手动选择桌面端 EXE 和独立端口；“恢复官方外观”只恢复所选应用。
 5. 最小化后留在托盘。托盘也可以切换应用、主题和打开主窗口。
@@ -18,8 +18,15 @@
 页面刷新或新窗口的自动补注需要管理器保持运行。正常退出应用再从原快捷方式打开，会恢复原生外观。
 
 需要 Windows PowerShell 5.1（系统自带）和对应的官方桌面应用。
-EXE 必须和发布包中的全部伴随脚本、XAML 资源一起解压，不能只复制 EXE。
+发行 EXE 已嵌入所需脚本、界面资源和内置主题，可以单独复制、移动或重命名运行。
 源码入口是 `SkinStudio.app.ps1`，旧的 `ZCodeSkin.app.ps1` 作为兼容入口保留。
+
+## 单文件与用户数据（2.7.1）
+
+- 程序依赖内嵌在 EXE 中，运行时自动准备到 `%LOCALAPPDATA%\SkinStudio\runtime\`，无需用户管理这些文件；缓存按内容隔离，并在启动时校验和修复。
+- 配置、主题、导入记录、缩略图和日志保存在 `%LOCALAPPDATA%\SkinStudio\data\`。主窗口左下角“数据目录”可直接打开，替换或移动 EXE 不影响这些数据。
+- 从旧版升级时，先把新 EXE 放到原目录运行一次；用户数据目录尚为空时，自动复制原目录中的配置、主题、导入及验收记录。旧文件保留，已删除的内置主题不会被重新添加。
+- 需要自定义数据位置时可使用 `SkinStudio.exe -DataDirectory "D:\My SkinStudio Data"`；开发者直接运行源码时，默认仍使用源码目录的数据。
 
 ## SkinStudio 自身界面皮肤（2.7.0）
 
@@ -188,8 +195,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build-release.ps1
 ```
 
 测试输出在 `logs/selftest.txt`，WPF 渲染预览在 `logs/selftest-ui.png`。
-`config.json`、`themes/`、`imports/`、`logs/` 都是本地用户数据；发布包只带内置 Aurora。
-升级保留这些数据，覆盖软件文件即可。
+`config.json`、`themes/`、`imports/`、`logs/` 都是本地用户数据；发行 EXE 内只带内置 Aurora，未包含本机配置或下载的皮肤。升级仅需替换 EXE，用户数据独立保留。
 
 核心文件：`SkinStudio.app.ps1`（统一界面、托盘、图库、多应用监控）、
 `skin-lib.ps1`（CDP、ZIP、ZCode 样式）、`skin-platforms.ps1`（四应用适配、路径探测、配置迁移）、
