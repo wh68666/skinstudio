@@ -40,6 +40,9 @@ function New-SkinVisualCss {
     $op = [int]$Visual.panelOpacity; $blur = [int]$Visual.blur
     $scope = if ($Application -eq 'zcode') { 'html[data-zc-skin="active"][data-skin-readable][data-skin-visual="custom"]' } else { 'html[data-skin-studio="' + $Application + '"][data-skin-readable][data-skin-visual="custom"]' }
     $css = switch ($Application) {
+        'workbuddy' { @'
+__S__ body[data-skin-studio-workbuddy]{--ss-wb-content:__O__% !important;--ss-wb-glass:__O__% !important;--ss-wb-filter:blur(__B__px) !important;}
+'@ }
         'opencode' { @'
 __S__{--ss-oc-content:__O__% !important;--ss-oc-session-content:__O__% !important;--ss-oc-glass:__O__% !important;}
 __S__ :is([data-component="new-session"],[data-slot="session-chat-panel"] > .bg-v2-background-bg-base,[data-slot="session-side-panel-content"] aside:not(aside aside),aside:not(aside aside),nav){backdrop-filter:blur(__B__px) !important;}

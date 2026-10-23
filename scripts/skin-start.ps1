@@ -1,6 +1,6 @@
 # Unified launcher. Existing commands default to ZCode.
 param(
-    [ValidateSet('zcode','monkeycode','codex','opencode')][string]$Application = 'zcode',
+    [ValidateSet('zcode','monkeycode','codex','opencode','workbuddy')][string]$Application = 'zcode',
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$Theme = 'aurora',
     [int]$Port = 0,
     [switch]$Force,

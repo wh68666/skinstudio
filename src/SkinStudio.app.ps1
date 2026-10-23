@@ -30,7 +30,7 @@ if (-not (Test-Path $libPath)) { throw 'skin-lib.ps1 not found next to the app' 
 $script:LibPath = $libPath
 
 # app version + update check endpoint (GitHub Release, public repo required)
-$script:AppVersion = '2.7.2'
+$script:AppVersion = '2.8.0'
 $script:UpdateApiUrl = 'https://api.github.com/repos/wh68666/skinstudio/releases/latest'
 $script:NotifiedTag = ''
 
@@ -589,7 +589,7 @@ __ZC_ICON_RESOURCES__
         <ComboBox x:Name="LangBox" DockPanel.Dock="Right" Width="110" Height="24" VerticalContentAlignment="Center"/>
         <TextBlock x:Name="StatusText" Text="ready" FontWeight="Bold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
       </DockPanel>
-      <UniformGrid x:Name="AppCards" Columns="4"/>
+      <UniformGrid x:Name="AppCards" Columns="5"/>
       <Border x:Name="OperationPanel" Visibility="Collapsed" Background="{DynamicResource Manager.AccentSoft}" CornerRadius="6" Padding="10" Margin="0,8,0,0">
         <StackPanel>
           <TextBlock x:Name="OperationTarget" FontWeight="SemiBold" Foreground="{DynamicResource Manager.Text}" Margin="0,0,0,6" TextTrimming="CharacterEllipsis"/>
@@ -1030,7 +1030,7 @@ function Sync-ReadabilityControl {
         $readabilityBox.Content = if ($Settings.activeApp -eq 'zcode') { $L.readabilityZcode } else { $L.readability }
         $syncAppearanceBox.Content = $L.syncAppearance
         $syncAppearanceBox.IsChecked = Test-SkinAppearanceSync $Cfg
-        $readabilityBox.Visibility = if ($Settings.activeApp -in @('codex','zcode','opencode')) { 'Visible' } else { 'Collapsed' }
+        $readabilityBox.Visibility = if ($Settings.activeApp -in @('codex','zcode','opencode','workbuddy')) { 'Visible' } else { 'Collapsed' }
         $readabilityBox.IsChecked = Test-SkinReadability $Cfg
     } finally { $script:UpdatingReadability = $false }
 }
@@ -1148,7 +1148,7 @@ if ($SelfTest) {
     $readabilityBox.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))
     if (-not $Cfg.readability) { throw 'Readability toggle failed to re-enable' }
     $appBox.SelectedIndex = [array]::IndexOf(@($script:SkinApps.Keys), 'opencode')
-    if ($Settings.activeApp -ne 'opencode' -or $readabilityBox.Visibility -ne 'Visible' -or $appBox.Items.Count -ne 4) { throw 'OpenCode application option missing' }
+    if ($Settings.activeApp -ne 'opencode' -or $readabilityBox.Visibility -ne 'Visible' -or $appBox.Items.Count -ne $script:SkinApps.Count) { throw 'OpenCode application option missing' }
     $readabilityBox.IsChecked = $false
     $readabilityBox.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))
     if ($Cfg.readability -or -not $Settings.apps.codex.readability) { throw 'OpenCode readability profile is not isolated' }
@@ -1161,6 +1161,8 @@ if ($SelfTest) {
     $syncAppearanceBox.IsChecked = $true
     $syncAppearanceBox.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))
     if (-not $Cfg.syncAppearance) { throw 'Appearance sync option failed to enable' }
+    Select-SkinApplication 'workbuddy' | Out-Null
+    if ($Settings.activeApp -ne 'workbuddy' -or $readabilityBox.Visibility -ne 'Visible') { throw 'WorkBuddy application option missing' }
     Test-SkinVisualEditor
     Test-ThemeBrowser
     Test-SkinStatusUi

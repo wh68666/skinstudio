@@ -27,11 +27,14 @@ try {
     Assert ($settings.apps.zcode.currentTheme -eq 'aurora') 'Legacy theme was lost'
     Assert ($settings.apps.zcode.appExe -eq 'D:\ZCode\ZCode.exe') 'Legacy app path was lost'
     Assert ($settings.apps.codex.currentTheme -eq '') 'Legacy theme leaked into Codex'
-    Assert (@($settings.apps.Values.port | Select-Object -Unique).Count -eq 4) 'Ports collide after migration'
+    Assert (@($settings.apps.Values.port | Select-Object -Unique).Count -eq $script:SkinApps.Count) 'Ports collide after migration'
     $settings.apps.codex.currentTheme = 'other'
     $settings.managerTheme = 'midnight'
     $settings.apps.codex.readability = $false
     $settings.apps.codex.syncAppearance = $false
+    Assert ($settings.apps.workbuddy.port -eq 9337 -and $settings.apps.workbuddy.currentTheme -eq '') 'WorkBuddy migration was not seeded independently'
+    $settings.apps.workbuddy.currentTheme = 'buddy-theme'
+    $settings.apps.workbuddy.themeAdjustments.aurora = @{panelOpacity=67;blur=3;position='right'}
     $settings.apps.opencode.currentTheme = 'open-theme'
     Write-SkinSettings $cfg $settings
     $roundtrip = Read-SkinSettings $cfg
@@ -40,6 +43,7 @@ try {
     Assert (-not $roundtrip.apps.codex.readability) 'Readability preference was not preserved'
     Assert (-not $roundtrip.apps.codex.syncAppearance) 'Appearance sync preference was not preserved'
     Assert ($roundtrip.apps.opencode.currentTheme -eq 'open-theme' -and $roundtrip.apps.opencode.port -eq 9336 -and $roundtrip.apps.opencode.syncAppearance) 'OpenCode profile was not preserved independently'
+    Assert ($roundtrip.apps.workbuddy.currentTheme -eq 'buddy-theme' -and $roundtrip.apps.workbuddy.themeAdjustments.aurora.panelOpacity -eq 67) 'WorkBuddy profile did not roundtrip independently'
     $roundtrip.apps.opencode.themeAdjustments.aurora = @{panelOpacity=73;blur=5;position='bottom-right'}
     $roundtrip.apps.opencode.themeAdjustments.'open-theme' = Get-SkinVisualPreset reading
     $roundtrip.apps.codex.themeAdjustments.aurora = Get-SkinVisualPreset clear
@@ -91,6 +95,18 @@ try {
     Assert (-not (Test-SkinDesktopExe opencode (Join-Path $desktop 'OpenCode.exe'))) 'OpenCode CLI mistaken for Electron desktop'
     [IO.File]::WriteAllText((Join-Path $desktop 'resources\app.asar'), '')
     Assert (Test-SkinDesktopExe opencode (Join-Path $desktop 'OpenCode.exe')) 'OpenCode desktop rejected'
+    [IO.File]::WriteAllText((Join-Path $desktop 'WorkBuddy.exe'), '')
+    Assert (Test-SkinDesktopExe workbuddy (Join-Path $desktop 'WorkBuddy.exe')) 'WorkBuddy Electron desktop rejected'
+    $inheritedPort=$env:WORKBUDDY_REMOTE_DEBUGGING_PORT
+    try {
+        $env:WORKBUDDY_REMOTE_DEBUGGING_PORT='19999'
+        $startInfo=New-SkinAppStartInfo workbuddy (Join-Path $desktop 'WorkBuddy.exe') 19337
+        Assert ($startInfo.EnvironmentVariables['WORKBUDDY_REMOTE_DEBUGGING_PORT'] -eq '19337' -and $startInfo.Arguments -match 'remote-debugging-address=127.0.0.1' -and -not $startInfo.UseShellExecute) 'WorkBuddy launch did not enable its dedicated loopback debugging port'
+        $officialInfo=New-SkinAppStartInfo workbuddy (Join-Path $desktop 'WorkBuddy.exe') 19337 -Official
+        $otherInfo=New-SkinAppStartInfo opencode (Join-Path $desktop 'OpenCode.exe') 19336
+        Assert (-not $officialInfo.EnvironmentVariables.ContainsKey('WORKBUDDY_REMOTE_DEBUGGING_PORT') -and -not $officialInfo.Arguments -and -not $otherInfo.EnvironmentVariables.ContainsKey('WORKBUDDY_REMOTE_DEBUGGING_PORT') -and $env:WORKBUDDY_REMOTE_DEBUGGING_PORT -eq '19999') 'WorkBuddy debugging leaked to official launch, another app, or the parent process'
+    } finally { $env:WORKBUDDY_REMOTE_DEBUGGING_PORT=$inheritedPort }
+    Assert (-not (Test-SkinDesktopExe workbuddy (Join-Path $desktop 'opencode-cli.exe'))) 'Wrong WorkBuddy executable accepted'
     [IO.File]::WriteAllText((Join-Path $desktop 'opencode-cli.exe'), '')
     Assert (-not (Test-SkinDesktopExe opencode (Join-Path $desktop 'opencode-cli.exe'))) 'Bundled OpenCode CLI mistaken for desktop'
 
@@ -131,7 +147,7 @@ try {
     # Test target selection independently of network/installed application state.
     function Test-SkinCdpOwner { return $true }
     function Get-CdpPageTargets { return $script:FixtureTargets }
-    foreach ($case in @(@('zcode','file:///C:/ZCode/resources/app.asar/out/renderer/index.html'), @('monkeycode','http://tauri.localhost/'), @('codex','app://-/index.html'), @('opencode','oc://renderer/index.html'), @('opencode','oc://renderer/new-session?draftId=123'))) {
+    foreach ($case in @(@('zcode','file:///C:/ZCode/resources/app.asar/out/renderer/index.html'), @('monkeycode','http://tauri.localhost/'), @('codex','app://-/index.html'), @('workbuddy','file:///D:/PCSoftware/WorkBuddy/resources/app.asar/renderer/index.html'), @('workbuddy','file:///C:/WorkBuddy/resources/app.asar.unpacked/renderer/index.html?windowKind=settings'), @('opencode','oc://renderer/index.html'), @('opencode','oc://renderer/new-session?draftId=123'))) {
         $script:FixtureTargets = @(
             [pscustomobject]@{ type='page'; id='a'; url=$case[1]; webSocketDebuggerUrl='ws://127.0.0.1:19223/devtools/page/a' },
             [pscustomobject]@{ type='page'; id='b'; url='https://example.com/'; webSocketDebuggerUrl='ws://127.0.0.1:19223/devtools/page/b' },
@@ -142,6 +158,11 @@ try {
         }
         if ($case[0] -eq 'monkeycode') {
             $script:FixtureTargets += [pscustomobject]@{type='page';id='pet';url='http://tauri.localhost/pet.html';webSocketDebuggerUrl='ws://127.0.0.1:19223/devtools/page/pet'}
+        }
+        if ($case[0] -eq 'workbuddy') {
+            foreach ($url in @('file:///C:/WorkBuddy/resources/app.asar/renderer/splash.html','file:///C:/WorkBuddy/resources/app.asar/renderer/updater.html','file:///C:/WorkBuddy/resources/app.asar/renderer/assets/index.html','https://example.com/renderer/index.html','file:///C:/Other/index.html','file:///C:/WorkBuddy/resources/app.asar/renderer/index.html?windowKind=image-viewer','file:///C:/WorkBuddy/resources/app.asar/renderer/index.html?windowKind=browser')) {
+                $script:FixtureTargets += [pscustomobject]@{type='page';id='bad';url=$url;webSocketDebuggerUrl='ws://127.0.0.1:19223/devtools/page/bad'}
+            }
         }
         if ($case[0] -eq 'opencode') {
             foreach ($url in @('oc://external/index.html','oc://renderer/assets/main.js','http://localhost:4096/','file:///C:/opencode/index.html')) {
@@ -162,7 +183,9 @@ try {
     $html = Join-Path $temp 'fixture.html'
     $nativeModule = 'export const definitions={theme:{key:"appearanceTheme"}};export const host={settings:{read:async()=>({configured:window.__fixtureNativeMode}),write:async(key,value)=>{window.__fixtureNativeMode=value;document.documentElement.dataset.theme=value;}}};'
     [IO.File]::WriteAllText((Join-Path $temp 'app-shared-fixture.js'),$nativeModule)
-    [IO.File]::WriteAllText($html, '<html class="theme-zai-light" data-theme="light"><head><style>:root{--color-surface:#fff;--color-text:#111;--color-foreground:#111111;--color-popover:#fafafa;--color-popover-foreground:var(--color-foreground)}.theme-zai-dark{--color-foreground:#eeeeee;--color-popover:#202020}[data-theme=dark]{--color-surface:#202020;--color-text:#eeeeee}html[data-theme="mc-light"]{}html[data-theme="mc-dark"]{}body{margin:0}button._Button_fixture{background:transparent}#root{height:100vh}.panel{background:var(--color-token-bg-secondary,var(--color-panel,white));color:var(--color-token-text-primary,var(--color-text));padding:32px}[data-app-shell-main-surface],[data-composer-surface-variant]{background-color:var(--color-surface)}.mc-workbench-background{position:fixed;inset:0;z-index:-1}</style></head><body><div class="mc-workbench-background"></div><div id="root" data-app-shell-application-menu-bar="true" data-app-shell-page-surface="true" style="--app-shell-titlebar-height:8px"><main data-app-shell-main-surface="default" style="margin-top:var(--app-shell-titlebar-height)"><div class="thread-scroll-container"><div aria-hidden="true" class="_background_fixture _fade_fixture" style="background:linear-gradient(to top,white,transparent)"></div></div><div class="_ApplicationMenuTopBar_fixture"><button id="tool" class="_Button_fixture" style="color:rgba(26,28,31,.49)"><svg width="10" height="10"></svg>Menu</button><button id="disabled" disabled class="_Button_fixture" style="opacity:.4"><svg></svg>Disabled</button><button id="send" style="background:rgb(20,127,153);color:white">Send</button></div><div id="zmenu" role="menu" style="background:var(--color-popover);color:var(--color-popover-foreground)">Menu</div><button id="zghost" data-variant="ghost" style="background:transparent;color:var(--color-foreground)"><svg width="10" height="10"></svg>Action</button><div class="panel">SkinStudio renderer verification</div><div data-thread-scroll-footer="true" style="background:white"><div aria-hidden="true" class="_background_fixture" style="background:white;position:absolute;inset:0;pointer-events:none"></div><div data-composer-surface-variant="default">Composer</div></div></main></div></body></html>')
+    [void](New-Item (Join-Path $temp 'assets') -ItemType Directory)
+    [IO.File]::WriteAllText((Join-Path $temp 'assets/theme-fixture.js'),'const manager={getTheme:()=>window.__fixtureNativeMode,setTheme(mode){window.__fixtureNativeMode=mode;localStorage.setItem("agent-ui-theme",JSON.stringify({theme:mode,followSystem:false}))}};export function getThemeManager(){return manager}')
+    [IO.File]::WriteAllText($html, '<html class="theme-zai-light" data-theme="light"><head><style>:root{--color-surface:#fff;--color-text:#111;--color-foreground:#111111;--color-popover:#fafafa;--color-popover-foreground:var(--color-foreground)}.theme-zai-dark{--color-foreground:#eeeeee;--color-popover:#202020}[data-theme=dark]{--color-surface:#202020;--color-text:#eeeeee}html[data-theme="mc-light"]{}html[data-theme="mc-dark"]{}body{margin:0}button._Button_fixture{background:transparent}#root{height:100vh}.panel{background:var(--color-token-bg-secondary,var(--color-panel,white));color:var(--color-token-text-primary,var(--color-text));padding:32px}[data-app-shell-main-surface],[data-composer-surface-variant]{background-color:var(--color-surface)}.mc-workbench-background{position:fixed;inset:0;z-index:-1}</style></head><body data-application-name="workbuddy"><div class="mc-workbench-background"></div><div id="root" data-app-shell-application-menu-bar="true" data-app-shell-page-surface="true" style="--app-shell-titlebar-height:8px"><main data-app-shell-main-surface="default" style="margin-top:var(--app-shell-titlebar-height)"><div class="thread-scroll-container"><div aria-hidden="true" class="_background_fixture _fade_fixture" style="background:linear-gradient(to top,white,transparent)"></div></div><div class="_ApplicationMenuTopBar_fixture"><button id="tool" class="_Button_fixture" style="color:rgba(26,28,31,.49)"><svg width="10" height="10"></svg>Menu</button><button id="disabled" disabled class="_Button_fixture" style="opacity:.4"><svg></svg>Disabled</button><button id="send" style="background:rgb(20,127,153);color:white">Send</button></div><div id="zmenu" role="menu" style="background:var(--color-popover);color:var(--color-popover-foreground)">Menu</div><button id="zghost" data-variant="ghost" style="background:transparent;color:var(--color-foreground)"><svg width="10" height="10"></svg>Action</button><div class="panel">SkinStudio renderer verification</div><div data-thread-scroll-footer="true" style="background:white"><div aria-hidden="true" class="_background_fixture" style="background:white;position:absolute;inset:0;pointer-events:none"></div><div data-composer-surface-variant="default">Composer</div></div></main></div></body></html>')
     $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0)
     $listener.Start(); $port = $listener.LocalEndpoint.Port; $listener.Stop()
     $browser = Start-Process -FilePath $edge -ArgumentList @('--headless=new','--disable-gpu','--no-first-run','--allow-file-access-from-files',('--user-data-dir="' + (Join-Path $temp 'browser') + '"'),"--remote-debugging-port=$port",'--remote-debugging-address=127.0.0.1',('"' + $html + '"')) -PassThru -WindowStyle Hidden
@@ -189,6 +212,7 @@ try {
                     'zcode' { "getComputedStyle(document.getElementById('root')).backgroundImage.includes('data:image/jpeg')" }
                     'monkeycode' { "getComputedStyle(document.querySelector('.mc-workbench-background')).backgroundImage.includes('data:image/jpeg')" }
                     'codex' { "getComputedStyle(document.body).backgroundImage.includes('data:image/jpeg')" }
+                    'workbuddy' { "getComputedStyle(document.body).backgroundImage.includes('data:image/jpeg')" }
                     'opencode' { "getComputedStyle(document.body).backgroundImage.includes('data:image/jpeg')" }
                 }
                 $reply = (Invoke-Cdp $ws 20 'Runtime.evaluate' @{ expression=$expression; returnByValue=$true }) | ConvertFrom-Json
@@ -288,10 +312,12 @@ try {
                     $restored = (Invoke-Cdp $ws 39 'Runtime.evaluate' @{expression=$restoreJs;returnByValue=$true}) | ConvertFrom-Json
                     Assert $restored.result.result.value 'OpenCode reapplication or native style restoration failed'
                 }
+                if ($id -eq 'workbuddy') { . (Join-Path $PSScriptRoot 'workbuddy-renderer.ps1') }
                 # Native store / settings paths, both appearances, and opt-out.
                 $setup = @"
 (()=>{const app='$id';const root=document.getElementById('root');delete root.__reactContainer_fixture;
 if(app==='codex'){const link=document.createElement('link');link.rel='modulepreload';link.href=new URL('./app-shared-fixture.js',location.href);document.head.appendChild(link)}
+else if(app==='workbuddy'){const link=document.createElement('link');link.rel='modulepreload';link.href=new URL('./assets/theme-fixture.js',location.href);document.head.appendChild(link);window.__fixtureNativeMode='dark'}
 else if(app==='opencode'){document.documentElement.dataset.theme='oc-2';document.documentElement.dataset.colorScheme='dark';localStorage.setItem('opencode-color-scheme','dark');window.__fixtureNativeMode='dark';window.addEventListener('storage',e=>{if(e.key==='opencode-color-scheme')window.__fixtureNativeMode=e.newValue})}
 else{window.__fixtureThemeState={theme:app==='zcode'?'zai-dark':'mc-dark',setTheme(value){this.theme=value}};root.__reactContainer`$fixture={memoizedProps:{value:{getState:()=>window.__fixtureThemeState}}}}
 return true})()
@@ -304,7 +330,7 @@ return true})()
                     $autoJs = New-SkinBootstrapJs $id $modePack @{readability=$true;syncAppearance=$true}
                     [void](Invoke-Cdp $ws 41 'Runtime.evaluate' @{expression=$autoJs;returnByValue=$true;awaitPromise=$true})
                     $verify = @"
-(()=>{const r=window.__SKIN_STUDIO_APPEARANCE;const expected=['codex','opencode'].includes('$id')?'$appearance':('$id'==='zcode'?'zai-$appearance':'mc-$appearance');const native=['codex','opencode'].includes('$id')?window.__fixtureNativeMode:window.__fixtureThemeState.theme;const oc='$id'!=='opencode'||(localStorage.getItem('opencode-color-scheme')==='$appearance'&&document.documentElement.dataset.colorScheme==='$appearance'&&document.documentElement.dataset.theme==='oc-2');return r?.applied && r.persisted && r.mode==='$appearance' && native===expected && oc})()
+(()=>{const r=window.__SKIN_STUDIO_APPEARANCE;const expected=['codex','opencode','workbuddy'].includes('$id')?'$appearance':('$id'==='zcode'?'zai-$appearance':'mc-$appearance');const native=['codex','opencode','workbuddy'].includes('$id')?window.__fixtureNativeMode:window.__fixtureThemeState.theme;const oc='$id'!=='opencode'||(localStorage.getItem('opencode-color-scheme')==='$appearance'&&document.documentElement.dataset.colorScheme==='$appearance'&&document.documentElement.dataset.theme==='oc-2');const wb='$id'!=='workbuddy'||(document.body.classList.contains('vscode-$appearance')&&document.body.dataset.vscodeThemeKind==='vscode-$appearance'&&JSON.parse(localStorage.getItem('agent-ui-theme')).theme==='$appearance');return wb && r?.applied && r.persisted && r.mode==='$appearance' && native===expected && oc})()
 "@
                     $auto = (Invoke-Cdp $ws 42 'Runtime.evaluate' @{expression=$verify;returnByValue=$true}) | ConvertFrom-Json
                     Assert $auto.result.result.value ("Native appearance synchronization failed: $id/$appearance")
@@ -321,8 +347,10 @@ return true})()
             } finally { Disconnect-CdpWs $ws }
         }
         . (Join-Path $PSScriptRoot 'work-pages.ps1')
+        $target.url += '?wbSeedToken=fixture-secret-token&accountSnapshot=fixture-private-account'
         $errorInfo=@{}
         Assert (-not (Push-ThemeToTarget $target 'throw Error("fixture failure")' (Join-Path $temp 'cdp.log') $errorInfo)) 'JS exceptions reported as successful injection'
+        Assert ([IO.File]::ReadAllText((Join-Path $temp 'cdp.log')) -notmatch 'fixture-secret-token|fixture-private-account') 'Target URL credentials were written to the log'
         Assert ($errorInfo.message -match 'fixture failure' -and $errorInfo.message -notmatch '^\{"id"') 'Script failure did not expose a readable cause'
     } finally {
         $browser.Refresh()

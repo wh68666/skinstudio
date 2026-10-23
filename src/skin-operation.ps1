@@ -10,6 +10,7 @@ function Get-SkinApplicationState {
     try {
         if ($Discover -or -not (Test-SkinDesktopExe $Application $AppExe)) { $AppExe = Resolve-SkinAppExe $Application $AppExe }
         if (-not (Test-SkinDesktopExe $Application $AppExe)) { return @{state='missing';exe='';reason='not_found';port=$Port} }
+        if (Test-SkinAppAccessDenied $Application $AppExe) { return @{state='unknown';exe=$AppExe;reason='process_access_denied';port=$Port} }
         if (-not @(Get-SkinAppProcesses $AppExe).Count) { return @{state='stopped';exe=$AppExe;reason='not_running';port=$Port} }
         if (-not (Test-SkinCdpOwner $Application $AppExe $Port)) {
             $reason = if (@(Get-SkinPortListeners $Port).Count) { 'port_busy' } else { 'debug_disabled' }
@@ -68,6 +69,7 @@ function Invoke-SkinOperation {
     try {
         & $report 'launch' 'checking'
         if (-not (Test-SkinDesktopExe $Application $AppExe)) { Throw-SkinOperationError 'APP_NOT_FOUND' ('Desktop executable not found or invalid: ' + $AppExe) }
+        if (Test-SkinAppAccessDenied $Application $AppExe) { Throw-SkinOperationError 'APP_ACCESS_DENIED' 'WorkBuddy process access denied. Run SkinStudio and WorkBuddy at the same privilege level.' }
         if (-not $Restore) {
             try { $pack=Get-ThemePack $ThemeDir; $js=New-SkinBootstrapJs $Application $pack $Options }
             catch { Throw-SkinOperationError 'THEME_INVALID' $_.Exception.Message }

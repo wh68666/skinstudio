@@ -340,18 +340,18 @@ function Push-ThemeToTarget {
                 if (-not $detail) { $detail = [string]$response.result.exceptionDetails.text }
                 if (-not $detail) { $detail = $r1.Substring(0, [Math]::Min(1200, $r1.Length)) }
                 if ($null -ne $ErrorInfo) { $ErrorInfo.message = $detail }
-                Write-ZcLog -Path $LogPath -Message ("APPLY ERROR -> {0} : {1}" -f $Target.url, $detail)
+                Write-ZcLog -Path $LogPath -Message ("APPLY ERROR -> {0} : {1}" -f (([string]$Target.url) -replace '[?#].*$',''), $detail)
                 return $false
             }
             $r2 = Invoke-Cdp -Ws $ws -Id 4 -Method 'Page.addScriptToEvaluateOnNewDocument' -Params @{ source = $BootstrapJs }
             $registration = $r2 | ConvertFrom-Json
             if ($registration.error) { throw ('Script registration failed: ' + $registration.error.message) }
-            Write-ZcLog -Path $LogPath -Message ("THEME OK -> {0} | apply={1}" -f $Target.url, $r1.Substring(0, [Math]::Min(80, $r1.Length)))
+            Write-ZcLog -Path $LogPath -Message ("THEME OK -> {0} | apply={1}" -f (([string]$Target.url) -replace '[?#].*$',''), $r1.Substring(0, [Math]::Min(80, $r1.Length)))
             return $true
         } finally { Disconnect-CdpWs -Ws $ws }
     } catch {
         if ($null -ne $ErrorInfo) { $ErrorInfo.message = $_.Exception.Message }
-        Write-ZcLog -Path $LogPath -Message ("THEME FAIL -> {0} : {1}" -f $Target.url, $_.Exception.Message)
+        Write-ZcLog -Path $LogPath -Message ("THEME FAIL -> {0} : {1}" -f (([string]$Target.url) -replace '[?#].*$',''), $_.Exception.Message)
         return $false
     }
 }

@@ -2,6 +2,7 @@
 $script:SkinRuntimeRevision = '2.6.0'
 $script:SkinPlatformsDir = $PSScriptRoot
 . (Join-Path $PSScriptRoot 'skin-opencode.ps1')
+. (Join-Path $PSScriptRoot 'skin-workbuddy.ps1')
 . (Join-Path $PSScriptRoot 'skin-visuals.ps1')
 
 function Test-SkinAppearanceSync {
@@ -28,10 +29,11 @@ $script:SkinApps = [ordered]@{
     monkeycode = @{ Id = 'monkeycode'; Name = 'MonkeyCode'; Exe = 'monkeycode-desktop.exe'; Port = 9224; Engine = 'webview2' }
     codex = @{ Id = 'codex'; Name = 'Codex'; Exe = 'ChatGPT.exe'; Port = 9335; Engine = 'electron' }
     opencode = @{ Id = 'opencode'; Name = 'OpenCode'; Exe = 'OpenCode.exe'; Port = 9336; Engine = 'electron' }
+    workbuddy = @{ Id = 'workbuddy'; Name = 'WorkBuddy'; Exe = 'WorkBuddy.exe'; Port = 9337; Engine = 'electron' }
 }
 
 function Get-SkinApp {
-    param([ValidateSet('zcode','monkeycode','codex','opencode')][string]$Application = 'zcode')
+    param([ValidateSet('zcode','monkeycode','codex','opencode','workbuddy')][string]$Application = 'zcode')
     return $script:SkinApps[$Application]
 }
 
@@ -105,7 +107,7 @@ function Test-SkinDesktopExe {
         # Codex CLI codex.exe must never be treated as the desktop application.
         return $Path -match '(?i)OpenAI[\\.]Codex' -and [bool](Test-Path -LiteralPath (Join-Path (Split-Path $Path) 'resources\app.asar') -PathType Leaf)
     }
-    if ($Application -eq 'opencode') {
+    if ($Application -in @('opencode','workbuddy')) {
         # The terminal CLI has a similar filename but no Electron resources.
         return [bool](Test-Path -LiteralPath (Join-Path (Split-Path $Path) 'resources\app.asar') -PathType Leaf)
     }
@@ -128,7 +130,7 @@ function Resolve-SkinAppExe {
             if (Test-SkinDesktopExe $Application $candidate) { return $candidate }
         }
     }
-    $roots = @("$env:LOCALAPPDATA\Programs\@opencodedesktop", "$env:LOCALAPPDATA\Programs", $env:ProgramFiles, ${env:ProgramFiles(x86)}, 'D:\MonkeyCode', 'D:\PCSoftware\MonkeyCode', 'C:\MonkeyCode')
+    $roots = @("$env:LOCALAPPDATA\Programs\@opencodedesktop", "$env:LOCALAPPDATA\Programs", $env:ProgramFiles, ${env:ProgramFiles(x86)}, 'D:\MonkeyCode', 'D:\PCSoftware\MonkeyCode', 'D:\PCSoftware\WorkBuddy', "$env:LOCALAPPDATA\Programs\WorkBuddy", 'C:\MonkeyCode')
     foreach ($key in @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*')) {
         foreach ($row in @(Get-ItemProperty $key -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like ('*' + $app.Name + '*') })) {
             if ($row.InstallLocation) { $roots += ([string]$row.InstallLocation).Trim('"') }
@@ -149,8 +151,15 @@ function Get-SkinAppProcesses {
     return @(Get-Process ([IO.Path]::GetFileNameWithoutExtension($AppExe)) -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path -ieq $AppExe })
 }
 
+function Test-SkinAppAccessDenied {
+    param([string]$Application, [string]$AppExe)
+    if ($Application -ne 'workbuddy' -or @(Get-SkinAppProcesses $AppExe).Count) { return $false }
+    return [bool]@(Get-Process WorkBuddy -ErrorAction SilentlyContinue | Where-Object { -not $_.Path }).Count
+}
+
 function Stop-SkinApp {
     param([string]$Application, [string]$AppExe)
+    if (Test-SkinAppAccessDenied $Application $AppExe) { throw 'WorkBuddy process access denied. Run both applications at the same privilege level.' }
     $procs = @(Get-SkinAppProcesses $AppExe)
     foreach ($p in $procs) { [void]$p.CloseMainWindow() }
     if ($procs.Count) { $procs | Wait-Process -Timeout 4 -ErrorAction SilentlyContinue }
@@ -164,7 +173,7 @@ function Stop-SkinApp {
     if ($procs.Count) { Start-Sleep -Milliseconds 700 }
 }
 
-function Start-SkinApp {
+function New-SkinAppStartInfo {
     param([string]$Application, [string]$AppExe, [int]$Port, [switch]$Official)
     if (-not (Test-SkinDesktopExe $Application $AppExe)) { throw "Invalid $Application desktop executable: $AppExe" }
     $info = New-Object Diagnostics.ProcessStartInfo
@@ -173,12 +182,21 @@ function Start-SkinApp {
     $info.UseShellExecute = $false
     $info.EnvironmentVariables.Remove('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS')
     $info.EnvironmentVariables.Remove('ELECTRON_RUN_AS_NODE')
+    $info.EnvironmentVariables.Remove('WORKBUDDY_REMOTE_DEBUGGING_PORT')
     if (-not $Official) {
         if ($Port -lt 1024 -or $Port -gt 65535) { throw 'Invalid debugging port' }
         $flags = "--remote-debugging-address=127.0.0.1 --remote-debugging-port=$Port"
         if ($Application -eq 'monkeycode') { $info.EnvironmentVariables['WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS'] = $flags }
         else { $info.Arguments = $flags }
+        if ($Application -eq 'workbuddy') { $info.EnvironmentVariables['WORKBUDDY_REMOTE_DEBUGGING_PORT'] = [string]$Port }
     }
+    return $info
+}
+
+function Start-SkinApp {
+    param([string]$Application, [string]$AppExe, [int]$Port, [switch]$Official)
+    if (Test-SkinAppAccessDenied $Application $AppExe) { throw 'WorkBuddy process access denied. Run both applications at the same privilege level.' }
+    $info = New-SkinAppStartInfo $Application $AppExe $Port -Official:$Official
     $proc = [Diagnostics.Process]::Start($info)
     try { return $proc.Id } finally { $proc.Dispose() }
 }
@@ -220,6 +238,12 @@ function Get-SkinTargets {
             $uri.AbsolutePath -eq ('/devtools/page/' + $t.id) -and -not $uri.UserInfo
         $validUrl = switch ($Application) {
             'zcode' { $t.url -match '^file:///.*(?:app\.asar/)?out/renderer/index\.html(?:[?#].*)?$' }
+            'workbuddy' {
+                $renderer = $t.url -match '^file:///.*[\/]resources/app\.asar(?:\.unpacked)?/renderer/index\.html(?:[?#].*)?$'
+                $decoded = [Uri]::UnescapeDataString([string]$t.url)
+                if ($decoded -match '[?&]windowKind=([^&#]+)') { $renderer = $renderer -and $Matches[1] -eq 'settings' }
+                $renderer
+            }
             'monkeycode' { $t.url -match '^(?:https?://tauri\.localhost|tauri://localhost)/(?:index\.html)?(?:[?#].*)?$' }
             # The packaged Electron renderer also uses history-based SPA routes.
             'opencode' { $t.url -match '^oc://renderer/(?!assets/)[^?#]*(?:[?#].*)?$' }
@@ -255,6 +279,7 @@ function Get-SkinPalette {
 function New-SkinBaseStyleBootstrapJs {
     param([string]$Application = 'zcode', $ThemePack, $Options)
     $marker = (Get-SkinMarker $ThemePack $Options) | ConvertTo-Json -Compress
+    if ($Application -eq 'workbuddy') { return New-WorkBuddyStyleBootstrapJs $ThemePack $Options }
     if ($Application -eq 'opencode') { return New-OpenCodeStyleBootstrapJs $ThemePack $Options }
     if ($Application -eq 'zcode') {
         $adapted = @{} + $ThemePack

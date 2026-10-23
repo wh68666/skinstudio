@@ -19,7 +19,7 @@ try {
         if(-not $process.WaitForExit(45000)){Stop-Process -Id $process.Id -Force;throw 'Single-file UI self-test timeout'}
         if($process.ExitCode -ne 0){throw ('Single-file UI self-test failed: '+[IO.File]::ReadAllText((Join-Path $data 'startup-error.txt')))}
         $log=[IO.File]::ReadAllText((Join-Path $data 'logs\selftest.txt'))
-        if($log -notmatch ('SkinStudio '+[regex]::Escape($version)) -or $log -notmatch 'opencode: bootstrap bytes='){throw 'Incomplete embedded runtime'}
+        if($log -notmatch ('SkinStudio '+[regex]::Escape($version)) -or ($log -notmatch 'opencode: bootstrap bytes=' -or $log -notmatch 'workbuddy: bootstrap bytes=')){throw 'Incomplete embedded runtime'}
         if($log -notmatch '(?m)^resources=(.+)$'){throw 'Missing resource diagnostics'}
         $runtime=$Matches[1].Trim()
         $resource=Join-Path $runtime 'skin-appearance.js'
@@ -30,7 +30,7 @@ try {
     foreach($name in @('config.json','compatibility.json','compatibility-versions.json','startup-error.txt')){if(Test-Path -LiteralPath (Join-Path $data $name)){throw ('Self-test wrote unexpected data: '+$name)}}
     if($before -and (Get-FileHash -LiteralPath $configPath).Hash -ne $before){throw 'Self-test changed real user settings'}
     if((Get-Item $exe).VersionInfo.FileVersion -ne ($version+'.0')){throw 'Executable version mismatch'}
-    'PASS: EXE-only distribution, embedded four-app/WPF tests, paths with spaces, arbitrary working directory, cache repair, no settings leakage.'
+    'PASS: EXE-only distribution, embedded five-app/WPF tests, paths with spaces, arbitrary working directory, cache repair, no settings leakage.'
 } finally {
     $resolved=[IO.Path]::GetFullPath($temp)
     if($resolved.StartsWith([IO.Path]::GetTempPath(),[StringComparison]::OrdinalIgnoreCase) -and (Split-Path $resolved -Leaf) -like 'SkinStudio-single-*'){Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction SilentlyContinue}

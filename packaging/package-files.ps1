@@ -7,6 +7,7 @@ $PackageFiles=[ordered]@{
     'src/skin-operation.ps1'='skin-operation.ps1'
     'src/skin-status-ui.ps1'='skin-status-ui.ps1'
     'src/skin-opencode.ps1'='skin-opencode.ps1'
+    'src/skin-workbuddy.ps1'='skin-workbuddy.ps1'
     'src/skin-visuals.ps1'='skin-visuals.ps1'
     'src/skin-visual-ui.ps1'='skin-visual-ui.ps1'
     'src/skin-theme-browser.ps1'='skin-theme-browser.ps1'

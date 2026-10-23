@@ -3,6 +3,9 @@
 async function skinStudioSyncAppearance(app, mode) {
   if (!['light', 'dark'].includes(mode)) return { applied: false, reason: 'unspecified' };
   const root = document.documentElement;
+  const workBuddyRenderer = () => document.body?.dataset.applicationName === 'workbuddy' ||
+    (new URL(location.href).searchParams.get('windowKind') === 'settings' &&
+     !!window.workbuddyDesktop && !!document.querySelector('.settings-window-root'));
   const bounded = promise => Promise.race([
     promise,
     new Promise((_, reject) => setTimeout(() => reject(Error('Appearance update timed out')), 4000))
@@ -80,6 +83,31 @@ async function skinStudioSyncAppearance(app, mode) {
           if (write) { await bounded(write(definitions.theme, mode)); method = 'native-settings'; persisted = true; }
         }
       }
+    } else if (app === 'workbuddy') {
+      if (!workBuddyRenderer()) throw Error('Not a WorkBuddy renderer');
+      // Reuse the loaded native manager: its listeners update React and its
+      // own serializer preserves WorkBuddy's theme preference schema.
+      const base = new URL('./assets/', location.href);
+      const urls = [...performance.getEntriesByType('resource').map(e => e.name),
+        ...[...document.querySelectorAll('script[src],link[rel="modulepreload"]')].map(e => e.src || e.href)];
+      const url = urls.find(value => {
+        try {
+          const u = new URL(value);
+          return u.protocol === base.protocol && u.host === base.host &&
+            u.pathname.startsWith(base.pathname) && /^theme-[\w-]+\.js$/.test(u.pathname.slice(base.pathname.length));
+        } catch { return false; }
+      });
+      if (url) {
+        const module = await bounded(import(url));
+        const getManager = Object.values(module).find(v => typeof v === 'function' && v.name === 'getThemeManager');
+        if (getManager) {
+          const manager = getManager();
+          if (typeof manager?.setTheme === 'function' && typeof manager?.getTheme === 'function') {
+            await bounded(Promise.resolve(manager.setTheme(mode)));
+            method = 'native-store'; persisted = true;
+          }
+        }
+      }
     } else if (app === 'opencode') {
       // OpenCode's Theme provider listens to this native preference's storage
       // event, updating Solid state, theme CSS and the desktop host together.
@@ -118,6 +146,17 @@ async function skinStudioSyncAppearance(app, mode) {
     root.classList.toggle('theme-zai-light', mode === 'light');
     root.classList.toggle('theme-zai-dark', mode === 'dark');
     root.classList.toggle('dark', mode === 'dark');
+  } else if (app === 'workbuddy') {
+    if (!workBuddyRenderer()) throw Error('Not a WorkBuddy renderer');
+    for (const element of [root, document.body]) {
+      for (const prefix of ['', 'cb-', 'vscode-']) {
+        element.classList.toggle(prefix + 'light', mode === 'light');
+        element.classList.toggle(prefix + 'dark', mode === 'dark');
+      }
+    }
+    root.setAttribute('data-theme', mode);
+    document.body.setAttribute('data-vscode-theme-kind', `vscode-${mode}`);
+    document.body.setAttribute('data-vscode-theme-name', mode === 'light' ? 'IDE Light' : 'IDE Night');
   } else if (app === 'opencode') {
     // data-theme is the native palette ID (e.g. oc-2), not the color scheme.
     root.setAttribute('data-color-scheme', mode);

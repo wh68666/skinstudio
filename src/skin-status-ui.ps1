@@ -29,6 +29,7 @@ function Get-SkinStatusLabels {
         debug_disabled='尚未启用调试连接'; port_busy_hint='调试端口被其他程序占用，请在“程序 / 端口”更换'; no_renderer='尚未发现兼容页面，应用可能正在启动或不支持当前连接方式'
         checkingDetail='正在检查桌面程序和连接，已连接时会跳过启动。'; starting='正在启动应用并启用换肤连接。'; restarting='正在重启应用以启用换肤连接。'; reused='已连接，跳过启动与重启。'; renderer='等待应用的兼容页面就绪（最长 40 秒）。'; injecting='正在将所选皮肤应用到页面。'; checking_style='正在检查主题标记、样式和壁纸解码。'
         APP_NOT_FOUND='未找到有效的桌面应用。请先安装，或在“程序 / 端口”选择正确的桌面程序。'
+        APP_ACCESS_DENIED='无法访问 WorkBuddy 进程。请让 SkinStudio 和 WorkBuddy 以相同权限运行后重试。'; process_access_denied='WorkBuddy 进程不可访问，可能以管理员权限运行；请让两个应用使用相同权限。'
         PORT_BUSY='端口 {0} 被其他程序占用。请在“程序 / 端口”更换端口后重试。'
         THEME_INVALID='主题包无法读取或生成样式。请检查主题文件，或重新导入主题。'
         START_FAILED='应用启动或重启失败。请检查程序位置和系统错误详情，关闭应用后可重试。'
@@ -44,7 +45,7 @@ function Get-SkinStatusLabels {
         restartTip='應用正在執行但未連線；套用主題時會重啟，請先儲存工作。'; missingTip='未偵測到桌面應用，可安裝或在「程式 / 連接埠」手動指定。'; stoppedTip='已安裝，套用主題時會啟動。'; connectedTip='已識別程序、調試連線與相容頁面，可直接套用。'; unknownTip='狀態偵測失敗，可修正後重試。'
         debug_disabled='尚未啟用調試連線'; port_busy_hint='連接埠被其他程序佔用，請更換'; no_renderer='尚未發現相容頁面，應用可能正在啟動或版本不相容'
         checkingDetail='正在檢查程式與連線；已連線時會略過啟動。'; starting='正在啟動應用並啟用連線。'; restarting='正在重啟應用以啟用連線。'; reused='已連線，略過啟動與重啟。'; renderer='等待相容頁面就緒（最長 40 秒）。'; injecting='正在將主題套用到頁面。'; checking_style='正在檢查主題標記、樣式與桌布解碼。'
-        APP_NOT_FOUND='未找到有效的桌面應用。請先安裝或指定正確的程式位置。'; PORT_BUSY='連接埠 {0} 被其他程序佔用，請更換後重試。'; THEME_INVALID='無法讀取主題或產生樣式，請檢查檔案或重新匯入。'; START_FAILED='啟動或重啟失敗。請檢查程式位置及系統錯誤。'; CONNECTION_TIMEOUT='等待連線逾時。未發現相容頁面；應用可能拒絕調試參數、已結束或版本不相容。'; APPLY_FAILED='主題腳本執行失敗，請重試或查看頁面執行記錄。'; VERIFY_FAILED='效果驗證失敗，部分頁面的主題、樣式或桌布未生效。請重試或查看記錄。'; SETTINGS_SAVE_FAILED='外觀操作已完成，但無法儲存設定。請檢查資料夾寫入權限和磁碟空間後重試。'; UNEXPECTED='操作未完成，請依錯誤詳情修正後重試。'; reason='錯誤詳情：'
+        APP_ACCESS_DENIED='無法存取 WorkBuddy 程序，請讓兩個應用以相同權限執行後重試。'; process_access_denied='WorkBuddy 程序不可存取，請讓兩個應用使用相同權限。'; APP_NOT_FOUND='未找到有效的桌面應用。請先安裝或指定正確的程式位置。'; PORT_BUSY='連接埠 {0} 被其他程序佔用，請更換後重試。'; THEME_INVALID='無法讀取主題或產生樣式，請檢查檔案或重新匯入。'; START_FAILED='啟動或重啟失敗。請檢查程式位置及系統錯誤。'; CONNECTION_TIMEOUT='等待連線逾時。未發現相容頁面；應用可能拒絕調試參數、已結束或版本不相容。'; APPLY_FAILED='主題腳本執行失敗，請重試或查看頁面執行記錄。'; VERIFY_FAILED='效果驗證失敗，部分頁面的主題、樣式或桌布未生效。請重試或查看記錄。'; SETTINGS_SAVE_FAILED='外觀操作已完成，但無法儲存設定。請檢查資料夾寫入權限和磁碟空間後重試。'; UNEXPECTED='操作未完成，請依錯誤詳情修正後重試。'; reason='錯誤詳情：'
     } }
     return @{
         steps=@('Launch app','Wait for connection','Apply skin','Verify result'); restoreSteps=@('Launch app','Wait for app','Restore appearance','Verify launch')
@@ -53,7 +54,7 @@ function Get-SkinStatusLabels {
         restartTip='Running without a skin connection. Applying a skin will restart the app; save your work first.'; missingTip='Desktop app not detected. Install it or select its executable in App / Port.'; stoppedTip='Installed. Applying a skin will launch the app.'; connectedTip='App process, debug connection and compatible page detected. Ready to apply.'; unknownTip='Could not check the app. Review the details and retry.'
         debug_disabled='Debug connection is disabled'; port_busy_hint='Debug port belongs to another process; change it in App / Port'; no_renderer='No compatible page found; app may be starting or incompatible'
         checkingDetail='Checking executable and connection. Connected apps skip launch.'; starting='Launching the app with a skin connection.'; restarting='Restarting the app to enable its skin connection.'; reused='Already connected; launch and restart skipped.'; renderer='Waiting for a compatible page (up to 40 seconds).'; injecting='Applying the selected skin to the page.'; checking_style='Checking theme marker, stylesheet and wallpaper decoding.'
-        APP_NOT_FOUND='Valid desktop app not found. Install it or select the correct executable in App / Port.'; PORT_BUSY='Port {0} belongs to another process. Change it in App / Port and retry.'; THEME_INVALID='Cannot read the theme or build its stylesheet. Check the files or import it again.'; START_FAILED='Could not start or restart the app. Check its location and the system error below.'; CONNECTION_TIMEOUT='Connection timed out: no compatible page. The app may reject debugging arguments, have exited, or be incompatible.'; APPLY_FAILED='The skin script failed. Retry or inspect the page execution error in the log.'; VERIFY_FAILED='Verification failed: the theme, stylesheet or wallpaper did not take effect on every page. Retry or inspect the log.'; SETTINGS_SAVE_FAILED='Appearance changed, but settings could not be saved. Check folder write permissions and free disk space, then retry.'; UNEXPECTED='Operation did not complete. Review the error below, correct it and retry.'; reason='Error details: '
+        APP_ACCESS_DENIED='Cannot access the WorkBuddy process. Run SkinStudio and WorkBuddy at the same privilege level and retry.'; process_access_denied='WorkBuddy process is inaccessible, possibly elevated. Run both apps at the same privilege level.'; APP_NOT_FOUND='Valid desktop app not found. Install it or select the correct executable in App / Port.'; PORT_BUSY='Port {0} belongs to another process. Change it in App / Port and retry.'; THEME_INVALID='Cannot read the theme or build its stylesheet. Check the files or import it again.'; START_FAILED='Could not start or restart the app. Check its location and the system error below.'; CONNECTION_TIMEOUT='Connection timed out: no compatible page. The app may reject debugging arguments, have exited, or be incompatible.'; APPLY_FAILED='The skin script failed. Retry or inspect the page execution error in the log.'; VERIFY_FAILED='Verification failed: the theme, stylesheet or wallpaper did not take effect on every page. Retry or inspect the log.'; SETTINGS_SAVE_FAILED='Appearance changed, but settings could not be saved. Check folder write permissions and free disk space, then retry.'; UNEXPECTED='Operation did not complete. Review the error below, correct it and retry.'; reason='Error details: '
     }
 }
 
@@ -244,8 +245,8 @@ function Test-SkinStatusUi {
     $oldCurrent=$State.Current; $oldConfiguredTheme=$Cfg.currentTheme; $oldVisual=$Cfg.activeVisual
     try {
         $State.Health=@{}; $State.Operations=@{}
-        $states=@('missing','stopped','connected','restart'); $i=0
-        foreach ($id in $script:SkinApps.Keys) { $State.Health[$id]=@{state=$states[$i];reason='ready';port=$Settings.apps[$id].port}; $i++ }
+        $states=@('missing','stopped','connected','restart','unknown'); $i=0
+        foreach ($id in $script:SkinApps.Keys) { $State.Health[$id]=@{state=$states[$i % $states.Count];reason='ready';port=$Settings.apps[$id].port}; $i++ }
         $spec=@{ThemeId='aurora';Options=@{visual=@{panelOpacity=43;blur=2;position='center'}};Restore=$false}
         Initialize-SkinOperationUi $spec
         if ($spec.Progress -isnot [Collections.Concurrent.ConcurrentQueue[object]]) { throw 'Operation progress queue missing' }

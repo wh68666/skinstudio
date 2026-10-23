@@ -58,7 +58,7 @@ try {
         $launcher=[IO.File]::ReadAllText((Join-Path $root 'packaging\launcher.ps1')).Replace('__SKINSTUDIO_PAYLOAD__',[Convert]::ToBase64String([IO.File]::ReadAllBytes($payload))).Replace('__SKINSTUDIO_PACKAGE_HASH__',$hash)
         $generated=Join-Path $buildRoot 'single-launcher.ps1'
         [IO.File]::WriteAllText($generated,$launcher,[Text.UTF8Encoding]::new($true))
-        Invoke-ps2exe -inputFile $generated -outputFile $out -noConsole -STA -iconFile $icoPath -title 'SkinStudio' -description 'ZCode, MonkeyCode, Codex and OpenCode desktop theme manager' -version $fileVersion | Out-Null
+        Invoke-ps2exe -inputFile $generated -outputFile $out -noConsole -STA -iconFile $icoPath -title 'SkinStudio' -description 'ZCode, MonkeyCode, Codex, OpenCode and WorkBuddy desktop theme manager' -version $fileVersion | Out-Null
     }finally{if(Test-Path -LiteralPath $payload){Remove-Item -LiteralPath $payload}}
 }finally{
     $resolved=[IO.Path]::GetFullPath($stage)

@@ -1,15 +1,15 @@
 (()=>{
  const visible=e=>!!e&&!!e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden';
  const nodes=s=>[...document.querySelectorAll(s)].filter(visible);
- const mode=(()=>{const r=document.documentElement;const a=[r.dataset.theme,r.dataset.colorScheme,r.getAttribute('class'),r.style.colorScheme].join(' ');if(/(?:dark|night)/i.test(a))return 'dark';if(/(?:light|monkeycode|day)/i.test(a))return 'light';return 'unknown'})();
+ const mode=(()=>{const r=document.documentElement;const a=[r.dataset.theme,r.dataset.colorScheme,r.getAttribute('class'),r.style.colorScheme,document.body?.dataset.vscodeThemeKind].join(' ');if(/(?:dark|night)/i.test(a))return 'dark';if(/(?:light|monkeycode|day)/i.test(a))return 'light';return 'unknown'})();
  const inputs=nodes('textarea,[contenteditable="true"],[role="textbox"]');
  const codes=nodes('pre');
  const menus=nodes('[role="menu"],[role="listbox"],[data-slot*="menu-content"],.dropdown-content,.menu:not(aside .menu)').filter(e=>e.matches('[role="listbox"],.dropdown-content,[role="menu"]')||!e.closest('[role="dialog"],dialog[open]'));
- const dialogs=nodes('[role="dialog"],dialog[open],[data-window-kind="settings"],[data-testid*="settings"]').filter(e=>e.clientWidth>200&&e.clientHeight>120);
+ const dialogs=nodes('[role="dialog"],dialog[open],[data-window-kind="settings"],[data-testid*="settings"],.settings-window-root').filter(e=>e.clientWidth>200&&e.clientHeight>120);
  const context=nodes('[data-slot="session-context-panel"],[data-component*="context"],[data-testid*="context-panel"],[aria-label*="上下文"],[aria-label*="Context"],[data-panel="context"]').filter(e=>e.clientWidth>150&&e.clientHeight>100);
- const panels=nodes('[data-slot="session-chat-panel"],[data-panel-id],[data-workbench-cell],[role="region"][aria-label*="格"],.mc-workbench-surface-100,main > aside').filter(e=>e.clientWidth>120&&e.clientHeight>100);
+ const panels=nodes('[data-slot="session-chat-panel"],[data-panel-id],[data-workbench-cell],[role="region"][aria-label*="格"],.mc-workbench-surface-100,.conversation-shell__main,.conversation-history-navigation,main > aside').filter(e=>e.clientWidth>120&&e.clientHeight>100);
  const scrollers=[...document.querySelectorAll('*')].filter(e=>visible(e)&&e.clientHeight>150&&e.scrollHeight>e.clientHeight*1.5&&/(auto|scroll)/.test(getComputedStyle(e).overflowY));
- const chatScrollers=scrollers.filter(e=>e.closest('main,.thread-scroll-container,[data-slot="session-chat-panel"]')&&!e.closest('aside,[role="dialog"],[role="menu"],[role="listbox"]'));
+ const chatScrollers=scrollers.filter(e=>e.closest('main,.thread-scroll-container,[data-slot="session-chat-panel"],.conversation-shell__main')&&!e.closest('aside,[role="dialog"],[role="menu"],[role="listbox"]'));
  const clip=codes.filter(e=>e.scrollWidth>e.clientWidth+2&&!/(auto|scroll)/.test(getComputedStyle(e).overflowX)).length;
  const tiny=nodes('button,[role="button"]').filter(e=>{const s=getComputedStyle(e);return !e.disabled&&s.opacity==='0'}).length;
  const scenes={

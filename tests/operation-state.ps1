@@ -14,6 +14,7 @@
     function Start-SkinApp { param($Application,$AppExe,$Port,[switch]$Official) if ($probe.launchError) { throw 'fixture access denied' }; $probe.starts++; $probe.running=$true; $probe.official=[bool]$Official }
     function Push-ThemeToTarget { param($Target,$BootstrapJs,$LogPath,$ErrorInfo) $ErrorInfo.message='fixture script error'; return $probe.push }
     function Test-TargetSkinEffect { param($Target,$Application,$Marker,$HasWallpaper) return @{ok=$probe.verify;reason='fixture style missing'} }
+    function Test-SkinAppAccessDenied { param($Application,$AppExe) return $Application -eq 'workbuddy' -and [bool]$probe.accessDenied }
     $spec=@{Application='codex';AppExe='fixture.exe';Port=19223;ThemeDir='fixture';LogPath=(Join-Path $temp 'operation.log');Options=@{};ConnectionTimeoutSec=0}
     $events=New-Object 'Collections.Generic.List[object]'
     $spec.Progress={param($event) $events.Add($event)}
@@ -49,6 +50,12 @@
         $health=Get-SkinApplicationState codex 'fixture.exe' 19223
         Assert ($health.state -eq $case.state) ('Application state incorrect: '+$case.state)
     }
+    $probe.accessDenied=$true
+    Assert ((Get-SkinApplicationState workbuddy 'fixture.exe' 19223).reason -eq 'process_access_denied') 'Elevated WorkBuddy was shown stopped'
+    $spec.Application='workbuddy';$before=$probe.starts;$beforeStops=$probe.stops;$caught=$null
+    try { Invoke-SkinOperation @spec | Out-Null } catch { $caught=$_ }
+    Assert ($caught.Exception.Data['SkinCode'] -eq 'APP_ACCESS_DENIED' -and $probe.starts -eq $before -and $probe.stops -eq $beforeStops) 'Inaccessible WorkBuddy was restarted or returned an unclear error'
+    $spec.Application='codex';$probe.accessDenied=$false
     $probe.targets=$false
     Assert ((Get-SkinApplicationState codex 'fixture.exe' 19223).state -eq 'restart') 'A port without a compatible page was shown connected'
     function Test-SkinDesktopExe { param($Application,$Path) return $Path -eq 'fixture.exe' }

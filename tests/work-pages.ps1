@@ -16,7 +16,7 @@ try{
     foreach($appId in $script:SkinApps.Keys){foreach($mode in @('light','dark')){
         $clone=@{}+$pack; $clone.Meta=[pscustomobject]@{id='fixture';version='0.0.0';appearance=$mode}
         $dark=($mode -eq 'dark').ToString().ToLowerInvariant()
-        $setup="(()=>{document.documentElement.className=$('$mode'|ConvertTo-Json -Compress);document.documentElement.classList.add('theme-zai-$mode');document.documentElement.dataset.theme='$mode';document.documentElement.dataset.colorScheme='$mode';document.querySelectorAll('#zc-skin-style,#skin-studio-style').forEach(e=>e.remove());return true})()"
+        $setup="(()=>{document.body.dataset.applicationName='workbuddy';document.body.className='agent-ui-theme vscode-$mode';document.documentElement.className=$('$mode'|ConvertTo-Json -Compress);document.documentElement.classList.add('theme-zai-$mode');document.documentElement.dataset.theme='$mode';document.documentElement.dataset.colorScheme='$mode';document.querySelectorAll('#zc-skin-style,#skin-studio-style').forEach(e=>e.remove());return true})()"
         [void](Invoke-Cdp $workWs 402 'Runtime.evaluate' @{expression=$setup;returnByValue=$true})
         $style=New-SkinStyleBootstrapJs $appId $clone @{readability=$true;syncAppearance=$false}
         $r=(Invoke-Cdp $workWs 403 'Runtime.evaluate' @{expression=$style;returnByValue=$true;awaitPromise=$true})|ConvertFrom-Json
@@ -43,8 +43,8 @@ try{
             $caseCount++
         }
     }}
-    Assert ($caseCount -eq 56) 'Working-page matrix incomplete'
-    Write-Host 'PASS: 56 synthetic working-page cases (4 apps x 2 modes x 7 scenes); no device-acceptance record written.'
+    Assert ($caseCount -eq ($script:SkinApps.Count * 14)) 'Working-page matrix incomplete'
+    Write-Host 'PASS: 70 synthetic working-page cases (5 apps x 2 modes x 7 scenes); no device-acceptance record written.'
 }finally{
     if($workWs){Disconnect-CdpWs $workWs}
     if($workTargetId){[void](Invoke-Cdp $control 407 'Target.closeTarget' @{targetId=$workTargetId})}

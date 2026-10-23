@@ -1,5 +1,5 @@
 # Standalone watcher follows the selected app's saved profile.
-param([ValidateSet('zcode','monkeycode','codex','opencode')][string]$Application = 'zcode',[string]$DataDirectory)
+param([ValidateSet('zcode','monkeycode','codex','opencode','workbuddy')][string]$Application = 'zcode',[string]$DataDirectory)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'cli-context.ps1')
 $mutex = New-Object Threading.Mutex($false, ('Local\SkinStudioInjector-' + $Application))

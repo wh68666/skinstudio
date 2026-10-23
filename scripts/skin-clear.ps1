@@ -1,6 +1,6 @@
 # Restore one application without changing other applications' skins.
 param(
-    [ValidateSet('zcode','monkeycode','codex','opencode')][string]$Application = 'zcode',
+    [ValidateSet('zcode','monkeycode','codex','opencode','workbuddy')][string]$Application = 'zcode',
     [string]$AppExe = '',
     [string]$DataDirectory
 )

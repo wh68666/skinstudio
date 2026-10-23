@@ -29,7 +29,7 @@ function Read-SkinCompatibilityRecords([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path)) { return @() }
     $data=[IO.File]::ReadAllText($Path) | ConvertFrom-Json
     if ($data.schemaVersion -ne 1) { throw 'Unsupported compatibility evidence format' }
-    return @($data.records | Where-Object { $_.application -in @('zcode','monkeycode','codex','opencode') -and $_.fingerprint -match '^[a-f0-9]{64}$' -and $_.scene -in $script:SkinCompatibilityScenes -and $_.mode -in @('light','dark') -and $_.result -in @('pass','fail') -and $_.source -in @('manual','maintainer') })
+    return @($data.records | Where-Object { $_.application -in @('zcode','monkeycode','codex','opencode','workbuddy') -and $_.fingerprint -match '^[a-f0-9]{64}$' -and $_.scene -in $script:SkinCompatibilityScenes -and $_.mode -in @('light','dark') -and $_.result -in @('pass','fail') -and $_.source -in @('manual','maintainer') })
 }
 function Get-SkinCompatibilityStatus {
     param($Identity,[string]$StorePath)
