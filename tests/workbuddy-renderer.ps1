@@ -36,7 +36,7 @@ foreach($mode in @('dark','light')){
 }
 
 $settingsSetup = @'
-(()=>{window.__wbFixtureUrl=location.href;history.replaceState(null,'','?windowKind=settings');delete document.body.dataset.applicationName;document.body.className='settings-window vscode-light';window.workbuddyDesktop={};const settings=document.createElement('div');settings.className='settings-window-root';document.body.appendChild(settings);return true})()
+(()=>{window.__wbFixtureUrl=location.href;history.replaceState(null,'','?windowKind=settings');delete document.body.dataset.applicationName;document.body.className='settings-window vscode-light';window.workbuddyDesktop={};const settings=document.createElement('div');settings.className='settings-window-root';settings.style.background='white';settings.innerHTML='<div class="settings-modal" style="background:white"><nav class="settings-modal__nav" style="background:white">Navigation</nav><main class="settings-modal__content" style="background:white"><div class="settings-modal__panel" style="background:white"><section class="general-settings-panel__group-card" style="background:white">Settings<input type="checkbox" checked disabled></section></div></main></div>';document.body.appendChild(settings);return true})()
 '@
 [void](Invoke-Cdp $ws 88 'Runtime.evaluate' @{expression=$settingsSetup;returnByValue=$true})
 $settingsPack=@{}+$pack
@@ -46,6 +46,16 @@ $settingsResult=(Invoke-Cdp $ws 89 'Runtime.evaluate' @{expression=$settingsStyl
 Assert (-not $settingsResult.result.exceptionDetails) 'WorkBuddy settings window without main-page marker rejected'
 $settingsCheck=((Invoke-Cdp $ws 90 'Runtime.evaluate' @{expression="document.body.classList.contains('vscode-dark')&&document.body.hasAttribute('data-skin-studio-workbuddy')&&window.__SKIN_STUDIO_APPEARANCE.mode==='dark'";returnByValue=$true})|ConvertFrom-Json).result.result.value
 Assert $settingsCheck 'WorkBuddy settings fallback did not synchronize appearance'
+$settingsLayers=@'
+(()=>{const root=document.querySelector('.settings-window-root'),c=document.createElement('canvas').getContext('2d');function alpha(e){c.clearRect(0,0,1,1);c.fillStyle=getComputedStyle(e).backgroundColor;c.fillRect(0,0,1,1);return c.getImageData(0,0,1,1).data[3]/255}const box=root.querySelector('input');return {root:alpha(root),frame:alpha(root.querySelector('.settings-modal')),panel:alpha(root.querySelector('.settings-modal__panel')),content:alpha(root.querySelector('.settings-modal__content')),nav:alpha(root.querySelector('.settings-modal__nav')),card:alpha(root.querySelector('.general-settings-panel__group-card')),checked:box.checked,disabled:box.disabled}})()
+'@
+foreach($mode in @('light','dark')){
+ [void](Invoke-Cdp $ws 901 'Runtime.evaluate' @{expression="document.body.classList.toggle('vscode-dark','$mode'==='dark');";returnByValue=$true})
+ $layers=((Invoke-Cdp $ws 902 'Runtime.evaluate' @{expression=$settingsLayers;returnByValue=$true})|ConvertFrom-Json).result.result.value
+ $content=if($mode -eq 'light'){.52}else{.64};$nav=.16
+ Assert ($layers.root -eq 0 -and $layers.content -eq 0 -and $layers.panel -eq 0 -and [Math]::Abs($layers.frame-$content) -lt .01 -and [Math]::Abs($layers.nav-$nav) -lt .01 -and [Math]::Abs($layers.card-.34) -lt .01) ('WorkBuddy settings wallpaper is obscured by nested native backgrounds: '+$mode)
+ Assert ($layers.checked -and $layers.disabled) 'WorkBuddy settings skin changed native control values/states'
+}
 [void](Invoke-Cdp $ws 91 'Runtime.evaluate' @{expression="history.replaceState(null,'',window.__wbFixtureUrl);document.body.dataset.applicationName='workbuddy';document.body.className='agent-ui-theme vscode-light';document.querySelector('.settings-window-root').remove();delete window.workbuddyDesktop;";returnByValue=$true})
 
 # A newly connected renderer can exist before its native identity marker.

@@ -116,6 +116,27 @@ html[data-skin-studio="workbuddy"] .artifact-slot-panel__card:is(:hover,:focus-w
 html[data-skin-studio="workbuddy"] :is(.artifact-slot-panel__card-share,.artifact-slot-panel__card-independent-window,.artifact-slot-panel__card-more):not(:disabled):hover{
  background:color-mix(in srgb,var(--ss-wb-ink) 8%,transparent) !important;
 }
+/* Settings is a separate renderer with legacy background aliases. Keep its
+   frame clear and paint one surface per pane, including future settings cards. */
+html[data-skin-studio="workbuddy"] .settings-window-root{
+ --wb-bg-primary:color-mix(in srgb,var(--ss-wb-panel) 34%,transparent) !important;
+ --wb-bg-secondary:transparent !important;--wb-bg-modal:var(--ss-wb-panel) !important;
+ background:transparent !important;
+}
+html[data-skin-studio="workbuddy"] .settings-window-root :is(.settings-modal__content,.settings-modal__panel){background:transparent !important;}
+html[data-skin-studio="workbuddy"] .settings-window-root .settings-window-chrome{
+ background:color-mix(in srgb,var(--ss-wb-panel) var(--ss-wb-glass),transparent) !important;backdrop-filter:var(--ss-wb-filter);
+}
+html[data-skin-studio="workbuddy"] .settings-window-root .settings-modal{
+ background:var(--ss-wb-surface) !important;backdrop-filter:var(--ss-wb-filter);
+}
+html[data-skin-studio="workbuddy"] .settings-window-root .settings-modal__nav{background:color-mix(in srgb,var(--ss-wb-panel) 16%,transparent) !important;}
+html[data-skin-studio="workbuddy"] .settings-window-root :is(.general-settings-panel__group-card,.wb-storage__card){
+ background:var(--wb-bg-primary) !important;box-shadow:inset 0 0 0 1px var(--ss-wb-line);
+}
+html[data-skin-studio="workbuddy"] .settings-window-root .settings-navigation__item--active{
+ background:color-mix(in srgb,var(--ss-wb-ink) 12%,transparent) !important;
+}
 html[data-skin-studio="workbuddy"] .cr-input-container{
  background:var(--ss-wb-card) !important;border-color:var(--ss-wb-line) !important;box-shadow:0 4px 18px #00000010;
 }

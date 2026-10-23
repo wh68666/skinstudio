@@ -1,5 +1,5 @@
 & {
-    Assert ((Get-SkinAdapterRevision workbuddy) -eq '2.8.3' -and (Get-SkinAdapterRevision monkeycode) -eq $script:SkinRuntimeRevision) 'WorkBuddy update changed another app adapter revision'
+    Assert ((Get-SkinAdapterRevision workbuddy) -eq '2.8.4' -and (Get-SkinAdapterRevision monkeycode) -eq $script:SkinRuntimeRevision) 'WorkBuddy update changed another app adapter revision'
     $identity=@{application='codex';version='test-1';fingerprint=('a'*64);adapter=$script:SkinRuntimeRevision;suite=$script:SkinCompatibilitySuite}
     $store=Join-Path $temp 'compatibility.json'
     $versions=Join-Path $temp 'compatibility-versions.json'
