@@ -1,14 +1,14 @@
 # Publish the exact pushed commit. Credentials remain in memory, never in output/files.
 param([string]$NotesPath)
 $ErrorActionPreference='Stop'
-$root=$PSScriptRoot
+$root=Split-Path $PSScriptRoot
 Set-Location $root
-$source=[IO.File]::ReadAllText((Join-Path $root 'SkinStudio.app.ps1'))
+$source=[IO.File]::ReadAllText((Join-Path $root 'src\SkinStudio.app.ps1'))
 if($source -notmatch '\$script:AppVersion\s*=\s*''([^'']+)'''){throw 'Missing AppVersion'}
 $version=$Matches[1];$tag='v'+$version;$repo='wh68666/skinstudio'
-$assetName='SkinStudio-v'+$version+'.zip';$zipPath=Join-Path $root ('release\'+$assetName)
-if(-not (Test-Path -LiteralPath $zipPath)){throw 'Build the portable package first'}
-if(-not $NotesPath){$NotesPath=Join-Path $root 'RELEASE_NOTES.md'}
+$assetName='SkinStudio-v'+$version+'.exe';$exePath=Join-Path $root ('dist\'+$assetName)
+if(-not (Test-Path -LiteralPath $exePath)){throw 'Build the standalone executable first'}
+if(-not $NotesPath){$NotesPath=Join-Path $root 'docs\RELEASE_NOTES.md'}
 $notes=[IO.File]::ReadAllText($NotesPath)
 $head=git rev-parse HEAD
 if($LASTEXITCODE -ne 0){throw 'Cannot read commit'}
@@ -42,9 +42,9 @@ if(-not $release){
     $body=@{tag_name=$tag;target_commitish=$head;name='SkinStudio '+$tag;body=$notes;draft=$true;prerelease=$false}|ConvertTo-Json
     $release=Invoke-RestMethod -Uri ($api+'/releases') -Method Post -Headers $headers -Body ([Text.Encoding]::UTF8.GetBytes($body)) -ContentType 'application/json; charset=utf-8'
 }
-foreach($kind in @('exe','zip')){
+foreach($kind in @('exe')){
     $assetName='SkinStudio-v'+$version+'.'+$kind
-    $assetPath=Join-Path $root ('release\'+$assetName)
+    $assetPath=Join-Path $root ('dist\'+$assetName)
     if(-not (Test-Path -LiteralPath $assetPath)){throw ('Build asset missing: '+$assetName)}
     $sha=[Security.Cryptography.SHA256]::Create();$stream=[IO.File]::OpenRead($assetPath)
     try {$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').ToLowerInvariant()}finally{$stream.Dispose();$sha.Dispose()}
@@ -53,8 +53,7 @@ foreach($kind in @('exe','zip')){
         if($asset.size -ne (Get-Item -LiteralPath $assetPath).Length -or ($asset.digest -and $asset.digest -ne ('sha256:'+$hash))){throw 'Existing release asset differs; it was not replaced'}
     }else{
         $upload='https://uploads.github.com/repos/'+$repo+'/releases/'+$release.id+'/assets?name='+[Uri]::EscapeDataString($assetName)
-        $type=if($kind -eq 'zip'){'application/zip'}else{'application/octet-stream'}
-        $asset=Invoke-RestMethod -Uri $upload -Method Post -Headers $headers -InFile $assetPath -ContentType $type
+        $asset=Invoke-RestMethod -Uri $upload -Method Post -Headers $headers -InFile $assetPath -ContentType 'application/octet-stream'
     }
     if($asset.size -ne (Get-Item -LiteralPath $assetPath).Length -or $asset.state -ne 'uploaded'){throw 'Uploaded asset verification failed'}
     if($asset.digest -and $asset.digest -ne ('sha256:'+$hash)){throw 'Uploaded asset checksum mismatch'}

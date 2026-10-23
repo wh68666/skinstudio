@@ -1,7 +1,7 @@
 ﻿# SkinStudio.app.ps1 - tray UI app for ZCode skinning (PS 5.1)
 # Features: installed theme list + zip import + dreamskin.cc gallery + tray switcher
-# Run dev:  powershell -NoProfile -ExecutionPolicy Bypass -File SkinStudio.app.ps1
-# Build:    app\build.ps1  (ps2exe -> SkinStudio.exe)
+# Run dev: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1
+# Build: scripts/build.ps1 (single-file EXE in build/)
 param(
     [switch]$SelfTest,
     [string]$DataDirectory,
@@ -18,8 +18,10 @@ $ErrorActionPreference = 'Stop'
 $script:ResourceDir = $PSScriptRoot
 if (-not $ResourceDir) { throw 'Program resource directory unavailable' }
 . (Join-Path $ResourceDir 'skin-storage.ps1')
-if(-not $DataDirectory){$DataDirectory=$ResourceDir}
-$script:AppDir=Initialize-SkinDataDirectory $DataDirectory $ResourceDir $LegacyDirectory -SelfTest:$SelfTest
+if(-not $DataDirectory){$DataDirectory=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'SkinStudio\data'}
+$builtinRoot=$ResourceDir
+if(-not (Test-Path -LiteralPath (Join-Path $builtinRoot 'themes\aurora'))){$builtinRoot=Join-Path (Split-Path $ResourceDir) 'resources'}
+$script:AppDir=Initialize-SkinDataDirectory $DataDirectory $builtinRoot $LegacyDirectory -SelfTest:$SelfTest
 
 $libPath = Join-Path $ResourceDir 'skin-lib.ps1'
 if (-not (Test-Path $libPath)) { $libPath = Join-Path (Split-Path -Parent $AppDir) 'skin-lib.ps1' }
@@ -28,7 +30,7 @@ if (-not (Test-Path $libPath)) { throw 'skin-lib.ps1 not found next to the app' 
 $script:LibPath = $libPath
 
 # app version + update check endpoint (GitHub Release, public repo required)
-$script:AppVersion = '2.7.1'
+$script:AppVersion = '2.7.2'
 $script:UpdateApiUrl = 'https://api.github.com/repos/wh68666/skinstudio/releases/latest'
 $script:NotifiedTag = ''
 

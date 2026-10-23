@@ -1,4 +1,7 @@
 # user data (created at runtime next to the exe) - never publish these
+data/
+build/
+dist/
 config.json
 compatibility.json
 compatibility-versions.json

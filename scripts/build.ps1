@@ -6,7 +6,7 @@ Set-Location $root
 
 # 1. icon
 Add-Type -AssemblyName System.Drawing
-$icoPath = Join-Path $scriptDir 'skin-studio.ico'
+$icoPath = Join-Path $root 'resources\icons\skin-studio.ico'
 if (-not (Test-Path $icoPath)) {
     $bmp = New-Object System.Drawing.Bitmap(64, 64)
     $g = [System.Drawing.Graphics]::FromImage($bmp)
@@ -38,32 +38,24 @@ if (-not (Get-Module -ListAvailable ps2exe)) {
 }
 
 # 3. Package all runtime files, then compile a single-file launcher.
-$out = Join-Path $root 'SkinStudio.exe'
-$source = Get-Content (Join-Path $root 'SkinStudio.app.ps1') -Raw -Encoding UTF8
+$out = Join-Path $root 'build\SkinStudio.exe'
+$source = Get-Content (Join-Path $root 'src\SkinStudio.app.ps1') -Raw -Encoding UTF8
 if ($source -notmatch '\$script:AppVersion\s*=\s*''([^'']+)''') { throw 'Missing AppVersion' }
 $fileVersion = $Matches[1] + '.0'
-$buildRoot=Join-Path $root '.research'
+$buildRoot=Join-Path $root 'build\intermediate'
 [void][IO.Directory]::CreateDirectory($buildRoot)
 $stage=Join-Path $buildRoot ('single-build-'+[guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($stage)
 try {
-    . (Join-Path $scriptDir 'package-files.ps1')
-    foreach($name in $PackageFiles){Copy-Item -LiteralPath (Join-Path $root $name) -Destination $stage}
+    . (Join-Path $root 'packaging\package-files.ps1')
+    foreach($name in $PackageFiles.Keys){$target=Join-Path $stage $PackageFiles[$name];[void][IO.Directory]::CreateDirectory((Split-Path $target));Copy-Item -LiteralPath (Join-Path $root $name) -Destination $target}
     [void][IO.Directory]::CreateDirectory((Join-Path $stage 'themes'))
-    if(Test-Path -LiteralPath (Join-Path $root 'themes\aurora')){Copy-Item -LiteralPath (Join-Path $root 'themes\aurora') -Destination (Join-Path $stage 'themes') -Recurse}
-    else {
-        $builtin=Join-Path $buildRoot ('builtin-'+[guid]::NewGuid().ToString('N')+'.zip')
-        try {
-            & git -C $root archive --format=zip --output=$builtin HEAD themes/aurora
-            if($LASTEXITCODE -ne 0){throw 'Bundled Aurora unavailable'}
-            Expand-Archive -LiteralPath $builtin -DestinationPath $stage -Force
-        }finally{if(Test-Path -LiteralPath $builtin){Remove-Item -LiteralPath $builtin}}
-    }
+    Copy-Item -LiteralPath (Join-Path $root 'resources\themes\aurora') -Destination (Join-Path $stage 'themes') -Recurse
     $payload=Join-Path $buildRoot ('payload-'+[guid]::NewGuid().ToString('N')+'.zip')
     try {
         Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $payload
         $hash=(Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash.ToLowerInvariant()
-        $launcher=[IO.File]::ReadAllText((Join-Path $scriptDir 'launcher.ps1')).Replace('__SKINSTUDIO_PAYLOAD__',[Convert]::ToBase64String([IO.File]::ReadAllBytes($payload))).Replace('__SKINSTUDIO_PACKAGE_HASH__',$hash)
+        $launcher=[IO.File]::ReadAllText((Join-Path $root 'packaging\launcher.ps1')).Replace('__SKINSTUDIO_PAYLOAD__',[Convert]::ToBase64String([IO.File]::ReadAllBytes($payload))).Replace('__SKINSTUDIO_PACKAGE_HASH__',$hash)
         $generated=Join-Path $buildRoot 'single-launcher.ps1'
         [IO.File]::WriteAllText($generated,$launcher,[Text.UTF8Encoding]::new($true))
         Invoke-ps2exe -inputFile $generated -outputFile $out -noConsole -STA -iconFile $icoPath -title 'SkinStudio' -description 'ZCode, MonkeyCode, Codex and OpenCode desktop theme manager' -version $fileVersion | Out-Null

@@ -4,11 +4,12 @@ param(
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$')][string]$Theme = 'aurora',
     [int]$Port = 0,
     [switch]$Force,
-    [string]$AppExe = ''
+    [string]$AppExe = '',
+    [string]$DataDirectory
 )
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot 'skin-lib.ps1')
-$cfgPath = Join-Path $PSScriptRoot 'config.json'
+. (Join-Path $PSScriptRoot 'cli-context.ps1')
+$cfgPath = Join-Path $DataRoot 'config.json'
 $settings = Read-SkinSettings $cfgPath
 $profile = $settings.apps[$Application]
 if (-not $Port) { $Port = $profile.port }
@@ -18,10 +19,10 @@ foreach ($id in $script:SkinApps.Keys) {
 }
 if (-not $AppExe) { $AppExe = Resolve-SkinAppExe $Application $profile.appExe }
 if (-not $AppExe) { throw "$Application desktop app not found. Configure it in SkinStudio." }
-[void](New-Item (Join-Path $PSScriptRoot 'logs') -ItemType Directory -Force)
-$log = Join-Path $PSScriptRoot ('logs\' + $Application + '-launcher.log')
-$themesRoot = Join-Path $PSScriptRoot 'themes'
-$imports = Join-Path $PSScriptRoot 'imports'
+[void](New-Item (Join-Path $DataRoot 'logs') -ItemType Directory -Force)
+$log = Join-Path $DataRoot ('logs\' + $Application + '-launcher.log')
+$themesRoot = Join-Path $DataRoot 'themes'
+$imports = Join-Path $DataRoot 'imports'
 if (Test-Path -LiteralPath $imports) {
     foreach ($zip in @(Get-ChildItem -LiteralPath $imports -Filter *.zip -File)) {
         $result = Import-CodexThemePack -ZipPath $zip.FullName -ThemesRoot $themesRoot
@@ -40,5 +41,5 @@ $profile.activeVisual = $null
 $profile.appExe = $AppExe; $profile.port = $Port; $profile.currentTheme = $Theme
 $settings.activeApp = $Application
 Write-SkinSettings $cfgPath $settings
-Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + (Join-Path $PSScriptRoot 'skin-injector.ps1') + '"'), '-Application', $Application) -WindowStyle Hidden
+Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + (Join-Path $PSScriptRoot 'skin-injector.ps1') + '"'), '-Application', $Application, '-DataDirectory', ('"'+$DataRoot+'"')) -WindowStyle Hidden
 Write-Host "$Application skin active: $Theme ($($result.message))"

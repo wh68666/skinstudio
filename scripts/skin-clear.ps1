@@ -1,11 +1,12 @@
 # Restore one application without changing other applications' skins.
 param(
     [ValidateSet('zcode','monkeycode','codex','opencode')][string]$Application = 'zcode',
-    [string]$AppExe = ''
+    [string]$AppExe = '',
+    [string]$DataDirectory
 )
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot 'skin-lib.ps1')
-$path = Join-Path $PSScriptRoot 'config.json'
+. (Join-Path $PSScriptRoot 'cli-context.ps1')
+$path = Join-Path $DataRoot 'config.json'
 $settings = Read-SkinSettings $path
 $profile = $settings.apps[$Application]
 if (-not $AppExe) { $AppExe = Resolve-SkinAppExe $Application $profile.appExe }

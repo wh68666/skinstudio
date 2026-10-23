@@ -7,7 +7,7 @@
 
 ## 使用
 
-1. 下载单文件 `SkinStudio-v2.7.1.exe`，无需安装或另配脚本；ZIP 版解压后也只有一个 `SkinStudio.exe`。
+1. 下载单文件 `SkinStudio-v2.7.2.exe`，无需解压、安装或另配脚本，直接双击即可。
 2. 双击 EXE，在窗口上方选择应用。
 3. 选主题，点击“应用所选”；支持拖入 ZIP、导入 ZIP、在线图库下载安装。
 4. “程序 / 端口”可手动选择桌面端 EXE 和独立端口；“恢复官方外观”只恢复所选应用。
@@ -19,14 +19,14 @@
 
 需要 Windows PowerShell 5.1（系统自带）和对应的官方桌面应用。
 发行 EXE 已嵌入所需脚本、界面资源和内置主题，可以单独复制、移动或重命名运行。
-源码入口是 `SkinStudio.app.ps1`，旧的 `ZCodeSkin.app.ps1` 作为兼容入口保留。
+源码入口是 `src/SkinStudio.app.ps1`，开发运行使用 `scripts/dev.ps1`，旧脚本入口保留在 `scripts/ZCodeSkin.app.ps1`。
 
 ## 单文件与用户数据（2.7.1）
 
 - 程序依赖内嵌在 EXE 中，运行时自动准备到 `%LOCALAPPDATA%\SkinStudio\runtime\`，无需用户管理这些文件；缓存按内容隔离，并在启动时校验和修复。
 - 配置、主题、导入记录、缩略图和日志保存在 `%LOCALAPPDATA%\SkinStudio\data\`。主窗口左下角“数据目录”可直接打开，替换或移动 EXE 不影响这些数据。
 - 从旧版升级时，先把新 EXE 放到原目录运行一次；用户数据目录尚为空时，自动复制原目录中的配置、主题、导入及验收记录。旧文件保留，已删除的内置主题不会被重新添加。
-- 需要自定义数据位置时可使用 `SkinStudio.exe -DataDirectory "D:\My SkinStudio Data"`；开发者直接运行源码时，默认仍使用源码目录的数据。
+- 需要自定义数据位置时可使用 `SkinStudio.exe -DataDirectory "D:\My SkinStudio Data"`。源码和命令行工具默认与 EXE 共用 Windows 用户数据，也支持通过 `-DataDirectory` 隔离。
 
 ## SkinStudio 自身界面皮肤（2.7.0）
 
@@ -40,7 +40,7 @@
 - 应用卡片显示版本与验收情况。应用或适配更新后旧记录不会算作当前版本通过，并提示重新验收；首次检测到的版本显示尚未验收。
 - 检查当前页面、查看本机截图、填写备注后人工确认通过或记录问题。自动观察不会代替人工验收，缺失场景保持待验收。
 - 已补 MonkeyCode 实机证据 12/14 项，独立上下文面板仍待验收；修复浅色代码块注释对比不足，排除宠物悬浮窗注入。
-- 新增 56 项合成工作页面回归；其他应用当前版本的实机覆盖范围、操作步骤和限制见 [COMPATIBILITY.md](COMPATIBILITY.md)。
+- 新增 56 项合成工作页面回归；其他应用当前版本的实机覆盖范围、操作步骤和限制见 [COMPATIBILITY.md](docs/COMPATIBILITY.md)。
 
 ## 换肤状态与故障处理（2.5.0）
 
@@ -112,7 +112,7 @@ Store 更新导致路径变化时会重新探测。若当前版本不接受调�
 
 ZCode 使用应用原生主题 store，Codex 使用原生 `appearanceTheme` 设置，已在本机验证持久保存。
 MonkeyCode 优先寻找原生主题 setter，并沿用现有 `mc.theme` 的存储格式；没有可识别的持久化入口时，
-仅同步当前渲染页面外观。MonkeyCode 本机现已补做部分工作页面的实机验收，具体版本与待验收项见 [COMPATIBILITY.md](COMPATIBILITY.md)。
+仅同步当前渲染页面外观。MonkeyCode 本机现已补做部分工作页面的实机验收，具体版本与待验收项见 [COMPATIBILITY.md](docs/COMPATIBILITY.md)。
 切换皮肤和重载页面会执行同步；用户手动改变原生模式后，不会在后台持续强制改回。
 
 2.1.0 同时修复 ZCode 浅色主题文字泄漏到原生深色菜单的问题：作者 CSS 限定在匹配模式内生效，
@@ -166,38 +166,44 @@ themes/<id>/
 
 ```powershell
 # 不指定 Application 时仍默认 ZCode，兼容旧命令
-powershell -NoProfile -ExecutionPolicy Bypass -File skin-start.ps1 -Application zcode -Theme aurora -Force
-powershell -NoProfile -ExecutionPolicy Bypass -File skin-start.ps1 -Application monkeycode -Theme aurora -Force
-powershell -NoProfile -ExecutionPolicy Bypass -File skin-start.ps1 -Application codex -Theme aurora -Force
-powershell -NoProfile -ExecutionPolicy Bypass -File skin-start.ps1 -Application opencode -Theme aurora -Force
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/skin-start.ps1 -Application zcode -Theme aurora -Force
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/skin-start.ps1 -Application monkeycode -Theme aurora -Force
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/skin-start.ps1 -Application codex -Theme aurora -Force
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/skin-start.ps1 -Application opencode -Theme aurora -Force
 
 # 恢复指定应用
-powershell -NoProfile -ExecutionPolicy Bypass -File skin-clear.ps1 -Application codex
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/skin-clear.ps1 -Application codex
 
 # 共用主题导入；imports/ 中的 ZIP 也会在脚本启动时自动导入
-powershell -NoProfile -ExecutionPolicy Bypass -File skin-import.ps1 -Zip C:\path\theme.zip
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/skin-import.ps1 -Zip C:\path\theme.zip
 ```
+
+## 项目结构
+
+源码在 `src/`，命令在 `scripts/`，打包模板在 `packaging/`，内置资源在 `resources/`，文档在 `docs/`。生成文件进入 `build/` 和 `dist/`，旧本地数据保留在 `data/legacy/`，均不提交。
+
+详细目录和路径约定见 [PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)。
 
 ## 开发与构建
 
 ```powershell
 # 开发运行
-powershell -STA -NoProfile -ExecutionPolicy Bypass -File SkinStudio.app.ps1
+powershell -STA -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1
 
 # 回归验证：临时配置/主题、独立无界面 Edge，不重启用户应用
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/verify.ps1
 
 # 界面与三语言自检，不联网、不导入到用户主题库、不写用户配置
-powershell -STA -NoProfile -ExecutionPolicy Bypass -File SkinStudio.app.ps1 -SelfTest
+powershell -STA -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 -SelfTest
 
 # 生成 EXE 与包含内置主题的便携发布包，需要 ps2exe
-powershell -NoProfile -ExecutionPolicy Bypass -File build-release.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-release.ps1
 ```
 
-测试输出在 `logs/selftest.txt`，WPF 渲染预览在 `logs/selftest-ui.png`。
+源码界面自检输出在 `build/selftest-data/logs/selftest.txt`，预览在同目录的 `selftest-ui.png`。
 `config.json`、`themes/`、`imports/`、`logs/` 都是本地用户数据；发行 EXE 内只带内置 Aurora，未包含本机配置或下载的皮肤。升级仅需替换 EXE，用户数据独立保留。
 
-核心文件：`SkinStudio.app.ps1`（统一界面、托盘、图库、多应用监控）、
+核心源码集中在 `src/`：`SkinStudio.app.ps1`（统一界面、托盘、图库、多应用监控）、
 `skin-lib.ps1`（CDP、ZIP、ZCode 样式）、`skin-platforms.ps1`（四应用适配、路径探测、配置迁移）、
 `skin-opencode.ps1`（OpenCode 桌面壁纸和玻璃样式）、
 `skin-operation.ps1`（执行阶段、应用状态和独立效果验证）、`skin-status-ui.ps1`（状态卡片、进度、错误与重试）、
@@ -214,4 +220,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build-release.ps1
 参考：[MonkeyCode Skin](https://github.com/wh68666/monkeyscode-skin)、
 [Codex Dream Skin](https://github.com/Fei-Away/Codex-Dream-Skin)、
 [Codex Dynamic Skin](https://github.com/CCDawn/Codex-Dynamic-Skin)。
-来源说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+来源说明见 [THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md)。

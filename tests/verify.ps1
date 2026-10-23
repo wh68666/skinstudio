@@ -1,6 +1,8 @@
 # Regression checks use temporary fixtures and never restart the user's apps.
 $ErrorActionPreference = 'Stop'
-$root = Split-Path $PSScriptRoot -Parent
+$projectRoot = Split-Path $PSScriptRoot -Parent
+$root = Join-Path $projectRoot 'src'
+$builtin = Join-Path $projectRoot 'resources\themes\aurora'
 . (Join-Path $root 'skin-lib.ps1')
 function Assert($Condition, [string]$Message) { if (-not $Condition) { throw $Message } }
 function Assert-Throws([scriptblock]$Work, [string]$Message) {
@@ -12,7 +14,8 @@ $temp = Join-Path ([IO.Path]::GetTempPath()) ('SkinStudio-test-' + [guid]::NewGu
 [void](New-Item $temp -ItemType Directory)
 try {
     . (Join-Path $PSScriptRoot 'storage.ps1')
-    foreach ($file in @(Get-ChildItem $root -Filter *.ps1) + @(Get-ChildItem (Join-Path $root 'app') -Filter *.ps1)) {
+    $sourceFiles=@(Get-ChildItem $root -Filter *.ps1) + @(Get-ChildItem (Join-Path $projectRoot 'scripts') -Filter *.ps1) + @(Get-ChildItem (Join-Path $projectRoot 'packaging') -Filter *.ps1) + @(Get-ChildItem $PSScriptRoot -Filter *.ps1)
+    foreach ($file in $sourceFiles) {
         $tokens = $null; $errors = $null
         [void][Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
         Assert (-not $errors.Count) ('Parse failure: ' + $file.Name + ': ' + ($errors -join '; '))
@@ -59,12 +62,12 @@ try {
     $favorites = Read-SkinSettings $cfg
     Assert ($favorites.favorites.Count -eq 2 -and $favorites.favorites -contains 'aurora' -and $favorites.apps.opencode.themeAdjustments.aurora.panelOpacity -eq 73) 'Favorite migration lost adjustments or accepted unsafe/duplicate IDs'
     . (Join-Path $root 'skin-thumbnails.ps1')
-    $thumbnail = Read-ThemeThumbnail (Join-Path $root 'themes\aurora\background.jpg')
+    $thumbnail = Read-ThemeThumbnail (Join-Path $builtin 'background.jpg')
     Assert ($thumbnail.PixelWidth -gt 1 -and $thumbnail.PixelWidth -le 320 -and $thumbnail.PixelHeight -le 240 -and $thumbnail.IsFrozen) 'Thumbnail decode lost detail, size bounds or cross-thread support'
     $cacheDir = Join-Path $temp 'thumbnail-cache'
     [void](New-Item $cacheDir -ItemType Directory)
     $cacheFile = Join-Path $cacheDir 'fixture-version-v1.jpg'
-    Copy-Item (Join-Path $root 'themes\aurora\background.jpg') $cacheFile
+    Copy-Item (Join-Path $builtin 'background.jpg') $cacheFile
     $cachedThumbnail = Get-RemoteThemeThumbnail 'fixture-version' $cacheDir
     Assert ($cachedThumbnail.PixelWidth -eq $thumbnail.PixelWidth) 'Disk thumbnail cache could not reopen offline'
     $exclusive = [IO.File]::Open($cacheFile,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
@@ -93,7 +96,7 @@ try {
 
     $packDir = Join-Path $temp 'package'
     [void](New-Item $packDir -ItemType Directory)
-    Copy-Item (Join-Path $root 'themes\aurora\background.jpg') $packDir
+    Copy-Item (Join-Path $builtin 'background.jpg') $packDir
     # A decodable JPEG with trailing padding reproduces Chromium's 2^21-byte
     # variable substitution limit, which small wallpapers do not exercise.
     $jpeg = [IO.File]::ReadAllBytes((Join-Path $packDir 'background.jpg'))
@@ -119,7 +122,7 @@ try {
     Assert ($scripts.monkeycode -match '--color-base-content:#111111') 'MonkeyCode palette mapping failed'
     Assert ($scripts.codex -match '--color-token-text-primary:#111111') 'Codex palette mapping failed'
     $nativeZip = Join-Path $temp 'native.zip'
-    Compress-Archive -Path (Join-Path $root 'themes\aurora\*') -DestinationPath $nativeZip
+    Compress-Archive -Path (Join-Path $builtin '*') -DestinationPath $nativeZip
     $native = Import-CodexThemePack -ZipPath $nativeZip -ThemesRoot $themes
     Assert ((Get-ThemePack $native.Dir).Version -eq '1.0.0') 'Native theme ZIP/version not supported'
     $monkey = @{ Meta = [pscustomobject]@{ id='legacy-monkey'; version='1' }; BgPath=$pack.BgPath; Css='html[data-mc-background="active"]{--color-base-300:#123456;--color-base-content:#abcdef;}' }
