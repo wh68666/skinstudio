@@ -53,11 +53,13 @@ __S__{--ss-content-opacity:__O__% !important;--ss-glass-opacity:__O__% !importan
 __S__ :is([data-app-shell-main-surface],[class*="_ApplicationMenuTopBar_"],nav[class~="group/sidebar-rail"]){background-color:color-mix(in srgb,var(--ss-panel) __O__%,transparent) !important;backdrop-filter:blur(__B__px) !important;}
 '@ }
         'zcode' { @'
-__S__{--ss-tune-panel:#f8fafc;--zc-readable-opacity:__O__% !important;--zc-glass-opacity:__O__% !important;}
+__S__{--ss-tune-panel:#f8fafc;--zc-readable-opacity:__O__% !important;--zc-glass-opacity:__O__% !important;--zc-composer-opacity:__O__% !important;--zc-composer-blur:__B__px !important;}
 __S__.theme-zai-dark{--ss-tune-panel:#202630;}
 __S__{--color-background:color-mix(in srgb,var(--zc-readable-panel,var(--ss-tune-panel)) __O__%,transparent) !important;--color-sidebar:color-mix(in srgb,var(--zc-readable-panel,var(--ss-tune-panel)) __O__%,transparent) !important;--color-background-win-alt:color-mix(in srgb,var(--zc-readable-panel,var(--ss-tune-panel)) __O__%,transparent) !important;--color-panel:color-mix(in srgb,var(--zc-readable-panel,var(--ss-tune-panel)) __O__%,transparent) !important;--color-header:color-mix(in srgb,var(--zc-readable-panel,var(--ss-tune-panel)) __O__%,transparent) !important;}
 __S__ :is([data-workspace-sidebar-panel],[data-workspace-conversation-frame]){background-color:color-mix(in srgb,var(--zc-readable-panel,var(--ss-tune-panel)) __O__%,transparent) !important;backdrop-filter:blur(__B__px) !important;}
 __S__ [data-desktop-window-frame]:has([data-workspace-shell]){background-color:transparent !important;}
+__S__ :is(.chat-composer-input-surface,[data-composer-layout]){background-color:color-mix(in srgb,var(--zc-readable-panel,var(--ss-tune-panel)) __O__%,transparent) !important;backdrop-filter:blur(__B__px) !important;}
+__S__ .chat-composer-input-surface [data-composer-layout]{background-color:transparent !important;backdrop-filter:none !important;}
 '@ }
         'monkeycode' { @'
 __S__{--ss-tune-panel:#f8fafc;--mc-surface-opacity:__O__% !important;--mc-background-blur:__B__px !important;}
