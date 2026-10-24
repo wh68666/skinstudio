@@ -30,7 +30,7 @@ if (-not (Test-Path $libPath)) { throw 'skin-lib.ps1 not found next to the app' 
 $script:LibPath = $libPath
 
 # app version + update check endpoint (GitHub Release, public repo required)
-$script:AppVersion = '2.8.5'
+$script:AppVersion = '2.8.6'
 $script:UpdateApiUrl = 'https://api.github.com/repos/wh68666/skinstudio/releases/latest'
 $script:NotifiedTag = ''
 
@@ -715,7 +715,15 @@ $verRun = $window.FindName('VerRun')
 try { $verRun.Text = 'v' + $script:AppVersion } catch { }
 $repoLink.Add_RequestNavigate({ param($s, $e) try { [void][Diagnostics.Process]::Start($e.Uri.AbsoluteUri) } catch { }; $e.Handled = $true })
 . (Join-Path $ResourceDir 'skin-manager-theme.ps1')
-$window.FindName('BtnDataFolder').Add_Click({[void](Start-Process explorer.exe -ArgumentList ('"'+$AppDir+'"'))})
+$window.FindName('BtnDataFolder').Add_Click({
+    try {
+        [void][Diagnostics.Process]::Start((New-SkinDataFolderStartInfo $script:AppDir))
+    } catch {
+        Write-AppLog ('DATA FOLDER OPEN ERROR: '+$script:AppDir+' | '+$_.Exception.Message)
+        $message=if($Cfg.lang -eq 'zh-CN'){'无法打开数据文件夹。请检查目录是否可访问。'}elseif($Cfg.lang -eq 'zh-TW'){'無法開啟資料夾。請檢查目錄是否可存取。'}else{'Cannot open the data folder. Check that the directory is accessible.'}
+        [void][Windows.Forms.MessageBox]::Show(($message+"`n`n"+$script:AppDir+"`n`n"+$_.Exception.Message),'SkinStudio')
+    }
+})
 
 # ---- language (en / zh-CN / zh-TW) ----
 $script:LangCodes = @('en', 'zh-CN', 'zh-TW')
@@ -814,8 +822,9 @@ function Set-Lang([string]$lang) {
     $script:Cfg.lang = $lang
     $script:L = Get-LangTable $lang
     $window.Title = $L.winTitle
-    $window.FindName('BtnDataFolder').Content=if($lang -eq 'zh-CN'){'数据目录'}elseif($lang -eq 'zh-TW'){'資料目錄'}else{'Data folder'}
-    $window.FindName('BtnDataFolder').ToolTip=$AppDir
+    $window.FindName('BtnDataFolder').Content=if($lang -eq 'zh-CN'){'打开数据文件夹'}elseif($lang -eq 'zh-TW'){'開啟資料夾'}else{'Open data folder'}
+    $folderHint=if($lang -eq 'zh-CN'){'保存主题、收藏、外观微调和日志的位置'}elseif($lang -eq 'zh-TW'){'儲存主題、收藏、外觀微調與日誌的位置'}else{'Stores themes, favorites, appearance adjustments and logs'}
+    $window.FindName('BtnDataFolder').ToolTip=$folderHint+"`n"+$script:AppDir
     Sync-SkinManagerThemeUi
     $btnSettings.Content = $L.appSettings
     Sync-ReadabilityControl

@@ -28,3 +28,14 @@ function Initialize-SkinDataDirectory {
     }
     return $data
 }
+
+# Use the Windows folder association without passing a quoted command line to Explorer.
+function New-SkinDataFolderStartInfo {
+    param([Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$DataDirectory)
+    $folder=[IO.Directory]::CreateDirectory([IO.Path]::GetFullPath($DataDirectory))
+    $info=New-Object Diagnostics.ProcessStartInfo
+    $info.FileName=$folder.FullName
+    $info.UseShellExecute=$true
+    $info.Verb='open'
+    return $info
+}
