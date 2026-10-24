@@ -19,7 +19,7 @@ function Test-SkinReadability {
 
 function Get-SkinAdapterRevision {
     param([string]$Application)
-    if ($Application -eq 'workbuddy') { return '2.8.4' }
+    if ($Application -eq 'workbuddy') { return '2.8.5' }
     return $script:SkinRuntimeRevision
 }
 

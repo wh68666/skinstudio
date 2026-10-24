@@ -140,6 +140,9 @@ html[data-skin-studio="workbuddy"] .settings-window-root .settings-navigation__i
 html[data-skin-studio="workbuddy"] .cr-input-container{
  background:var(--ss-wb-card) !important;border-color:var(--ss-wb-line) !important;box-shadow:0 4px 18px #00000010;
 }
+html[data-skin-studio="workbuddy"] .cr-input-container .cr-input-toolbar__right{
+ background:transparent !important;
+}
 html[data-skin-studio="workbuddy"] :is(.cr-input-container-wrapper,[class*="_inputBottom_"],[class*="_emptyStateContainer_"]){background:transparent !important;}
 html[data-skin-studio="workbuddy"] :is([role="menu"],[role="dialog"],[role="listbox"],.wb-dialog,.monaco-menu-container){
  --wb-color-bg-primary-default:var(--ss-wb-panel) !important;--wb-color-bg-secondary-default:var(--ss-wb-panel) !important;
